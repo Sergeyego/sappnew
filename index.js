@@ -30,12 +30,14 @@ app.post('/login', bodyParser.json(), async (req, res) => {
     db.one("SELECT hashpass = crypt($2, hashpass) as ok FROM rest_users WHERE username = $1", [username, password])
         .then((pass_ok) => {
             if (pass_ok.ok) {
-                jwt.sign({ username }, hashFunc, { expiresIn: "11 h" }, function (err, token) {
+                jwt.sign({ username }, hashFunc, { expiresIn: "12 h" }, function (err, token) {
                     if (err) {
                         res.status(401).type('text/plain');
                         res.send(err.message);
                     } else {
-                        res.json({ token });
+                        const decoded = jwt.decode(token, { complete: true });
+                        //console.log(decoded.payload);
+                        res.json({token, username: decoded.payload.username, iat: decoded.payload.iat, exp: decoded.payload.exp});
                     }
                 });
             } else {
@@ -64,6 +66,7 @@ function authMiddleware(req, res, next) {
 const router = express.Router();
 router.use(authMiddleware);
 
+require('./autorest/api.js')(router);
 require('./routes/api/elrtr/rest.js')(router);
 
 router.get('/profile', (req, res) => {

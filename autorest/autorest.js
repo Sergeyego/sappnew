@@ -40,6 +40,7 @@ let updData = async function () {
 }
 
 let getDisplay = function (val, type, dec) {
+    if (val===null) return "";
     let ret;
     switch (type) {
         case "bool":

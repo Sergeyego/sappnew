@@ -1,46 +1,41 @@
+const intFormatter = new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : 0 });
+const dateFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "numeric", day: "numeric"});
+const dateLongFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "long", day: "numeric"});
+const dateTimeFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric"});
+const timeFormatter = new Intl.DateTimeFormat("ru-RU",{hour: "numeric", minute: "numeric"});
+
+const mapDecFormatter = new Map();
+for (i=1; i<5; i++){
+    mapDecFormatter.set(i,new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : i, maximumFractionDigits : i}));
+}
+
 let insNumber = function (val, dec){
-    if (dec!=0){
-        return val!=null ? new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : dec, maximumFractionDigits : dec}).format(val) : "";
+    if (val===null) return ""; 
+    if (dec>0 && dec!=null){
+        if (dec<5){
+            return mapDecFormatter.get(dec).format(val);
+        } else {
+            return new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : dec, maximumFractionDigits : dec}).format(val);
+        }
     } else {
-        return val!=null ? new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : dec }).format(val) : "";
+        return intFormatter.format(val);
     }
 }
 
 let insDate = function (dat){
-    let dateoptions = {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-    };
-    return new Intl.DateTimeFormat("ru-RU",dateoptions).format(dat);
+    return (dat===null)? "" : dateFormatter.format(dat);
 }
 
 let insDateLong = function (dat){
-    let dateoptions = {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    };
-    return new Intl.DateTimeFormat("ru-RU",dateoptions).format(dat);
+    return (dat===null)? "" : dateLongFormatter.format(dat);
 }
 
 let insDateTime = function (dtm) {
-    let dateoptions = {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-    };
-    return new Intl.DateTimeFormat("ru-RU",dateoptions).format(dtm);
+    return (dtm===null)? "" : dateTimeFormatter.format(dtm);
 }
 
 let insTime = function (tm) {
-    let dateoptions = {
-        hour: "numeric",
-        minute: "numeric",
-    };
-    return new Intl.DateTimeFormat("ru-RU",dateoptions).format(tm);
+    return (tm===null)? "" : timeFormatter.format(tm);
 }
 
 let insUpperFirst = function (str) {
