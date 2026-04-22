@@ -99,7 +99,11 @@ let selectDb = async function (tname, flt){
         }
     });
 
-    let query = "SELECT "+colstr+", "+coljoin+" FROM "+tbl.tablename+" "+joinstr;
+    let query = "SELECT "+colstr;
+    if (!locale.isEmptyStr(coljoin)){
+        query+=", "+coljoin;
+    }
+    query+=" FROM "+tbl.tablename+" "+joinstr;
     if (!locale.isEmptyStr(flt)){
         query+="WHERE "+flt;
     }
@@ -133,19 +137,12 @@ let getData = async function (tname, req) {
     console.log(req.method);
     let data = {};
     if (req.method=="GET"){
-        data = await selectDb(tname, "parti.dat_part>='2026-01-01'");
+        data = await selectDb(tname, req.query.filter);
     }
     return data;
 }
 
-/*updData()
-    .then((dt) => {
-    })*/
-
-//rest_tables = updData();
-
 module.exports = {
-    //rest_tables,
     getData,
     updData
 };
