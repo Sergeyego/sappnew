@@ -46,5 +46,19 @@ module.exports = function (app) {
             res.status(500).type('text/plain');
             res.send(error.message);
         }
-    })
+    });
+
+    app.get("/elrtr/diam", async (req, res) => {
+        db.result("select *, 2, null from diam where id = 1")
+            .then(result => {
+                // rowCount = number of rows affected by the query
+                console.log(result.rowCount); // print how many records were deleted;
+                res.json(result);
+            })
+            .catch(error => {
+                console.log('ERROR:', error);
+                res.status(500).type('text/plain');
+                res.send(error.message);
+            });
+    });
 }

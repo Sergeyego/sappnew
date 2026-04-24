@@ -4,6 +4,18 @@ const autorest = require('./autorest.js');
 const db = require('../postgres.js');
 
 module.exports = function (app) {
+    
+    app.get("/autorest/upddata", async (req, res) => {
+        const upd = await autorest.updData();
+        if (upd.ok){
+            res.status(200).type('text/plain');
+            res.send("Обновлено устешно");
+        } else {
+            res.status(404).type('text/plain');
+            res.send(upd.error);
+        }
+    });
+
     app.get("/autorest/tableinfo/:tablename", async (req, res) => {
         if (restinfo.tables.has(req.params["tablename"])) {
             res.json(restinfo.tables.get(req.params["tablename"]));
