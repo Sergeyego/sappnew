@@ -2,6 +2,7 @@ const restinfo = require('./restinfo.js');
 const locale = require('../locale.js');
 const autorest = require('./autorest.js');
 const db = require('../postgres.js');
+var bodyParser = require('body-parser');
 
 module.exports = function (app) {
     
@@ -25,7 +26,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/autorest/tables/:tablename", async (req, res) => {
+    app.use("/autorest/tables/:tablename", bodyParser.json(), async (req, res) => {
         if (restinfo.tables.has(req.params["tablename"])) {
             autorest.getData(req.params["tablename"], req)
                 .then((data) => {

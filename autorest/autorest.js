@@ -67,17 +67,29 @@ let getDisplay = function (val, type, dec) {
         case "timestamptz":
             ret=locale.insDateTime(val);
             break;
-        case "time":
+        /*case "time":
         case "timetz":
             ret=locale.insTime(val);
-            break;
+            break;*/
         default:
             ret=val;
     }
     return ret;
 }
 
-let selectDb = async function (tname, flt){
+let getFltStr = function (tname, obj){
+    const tbl = restinfo.tables.get(tname);
+    let flt = "";
+    for (const key in obj) {
+        if (flt!=""){
+            flt+=" and ";
+        }
+        flt+=tbl.tablename+"."+key+" = "+"${"+key+"}";
+    }
+    return flt;
+} 
+
+let selectDb = async function (tname, flt, params){
     const tbl = restinfo.tables.get(tname);
     const col = tbl.columns;
     //console.log(col);
@@ -113,7 +125,7 @@ let selectDb = async function (tname, flt){
     }
 
     //console.log(query);
-    const data = await db.any(query);
+    const data = await db.any(query, params);
 
     let obj = new Array;
     for (let i = 0; i < data.length; i++) {
@@ -133,11 +145,118 @@ let selectDb = async function (tname, flt){
     return obj;
 }
 
+let insertDb = async function (tname, body){
+    const tbl = restinfo.tables.get(tname);
+    const col = tbl.columns;
+    let colstr = "";
+    let valstr = "";
+    let idstr = "";
+
+    col.forEach(function (cl) {
+        if (body[cl.nam]!==null && body[cl.nam]!==undefined){
+            //console.log(cl.nam, body[cl.nam]);
+            if (colstr!=""){
+                colstr+=", ";
+                valstr+=", ";
+            }
+            colstr+=cl.col;
+            valstr+="${"+cl.nam+"}";
+        }
+        if (cl.is_pk){
+            if (idstr!=""){
+                idstr+=", ";
+            }
+            idstr+=cl.col;
+        }
+    });
+
+    let query = "INSERT INTO "+tbl.tablename+" ("+colstr+") VALUES ("+valstr+") RETURNING "+idstr;
+    //console.log(query);
+    const pks = await db.one(query, body);
+    return pks;
+}
+
+let updateDb = async function (tname, body){
+    const tbl = restinfo.tables.get(tname);
+    const col = tbl.columns;
+    let valstr = "";
+    let idstr = "";
+    let fltstr = "";
+    let parobj = {};
+    let pkobj = {};
+
+    const new_row=body.new_row;
+    const old_row=body.old_row;
+    col.forEach(function (cl) {
+        if (new_row[cl.nam]!==old_row[cl.nam]){
+            //console.log(cl.nam, new_row[cl.nam]);
+            if (valstr!=""){
+                valstr+=", ";
+            }
+            valstr+=cl.col+" = ${"+cl.nam+"}";
+            parobj[cl.nam] = new_row[cl.nam];
+        }
+        if (cl.is_pk){
+            if (idstr!=""){
+                idstr+=", ";
+                fltstr+=" and ";
+            }
+            idstr+=cl.col;
+            fltstr+=cl.col+" = ${pk_"+cl.col+"}";
+            parobj["pk_"+cl.col]=old_row[cl.nam];
+            pkobj[cl.col]=old_row[cl.nam];
+        }
+    });
+
+    let pks = {};
+
+    if (valstr.length){
+        let query = "UPDATE "+tbl.tablename+" SET "+valstr+" WHERE "+fltstr+" RETURNING "+idstr;
+        //console.log(query);
+        //console.log(parobj);
+        pks = await db.one(query, parobj);
+    } else {
+        pks = pkobj;
+    }
+    return pks;
+}
+
+let deleteDb = async function (tname, pks){
+    const tbl = restinfo.tables.get(tname);
+    const col = tbl.columns;
+    let idstr = "";
+
+    col.forEach(function (cl) {
+        if (cl.is_pk){
+            if (idstr!=""){
+                idstr+=" and ";
+            }
+            idstr+=cl.col+" = ${"+cl.nam+"}";
+        }
+    });
+
+    let query = "DELETE FROM "+tbl.tablename+" WHERE "+idstr;
+    //console.log(query);
+    //console.log(pks);
+    const ret = await db.any(query, pks);
+    return ret;
+}
+
 let getData = async function (tname, req) {
-    console.log(req.method);
+    //console.log(req.method);
     let data = {};
     if (req.method=="GET"){
         data = await selectDb(tname, req.query.filter);
+    } else if (req.method=="PUT") {
+        const pks = await insertDb(tname, req.body);
+        data = await selectDb(tname, getFltStr(tname, pks), pks);
+        //console.log(data);
+    } else if (req.method=="POST") {
+        const pks = await updateDb(tname, req.body);
+        data = await selectDb(tname, getFltStr(tname, pks), pks);
+        //console.log(data);
+    } else if (req.method=="DELETE") {
+        await deleteDb(tname, req.query);
     }
     return data;
 }
