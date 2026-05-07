@@ -10,7 +10,7 @@ module.exports = function (app) {
         const upd = await autorest.updData();
         if (upd.ok){
             res.status(200).type('text/plain');
-            res.send("Обновлено устешно");
+            res.send("Обновлено успешно");
         } else {
             res.status(404).type('text/plain');
             res.send(upd.error);
@@ -23,6 +23,15 @@ module.exports = function (app) {
         } else {
             res.status(404).type('text/plain');
             res.send("Не найдена таблица '" + req.params["tablename"] + "'");
+        }
+    });
+
+    app.get("/autorest/relinfo/:name", async (req, res) => {
+        if (restinfo.rels.has(req.params["name"])) {
+            res.json(restinfo.rels.get(req.params["name"]));
+        } else {
+            res.status(404).type('text/plain');
+            res.send("Не найдено отношение '" + req.params["name"] + "'");
         }
     });
 

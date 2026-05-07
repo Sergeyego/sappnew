@@ -225,20 +225,23 @@ let deleteDb = async function (tname, pks){
     const tbl = restinfo.tables.get(tname);
     const col = tbl.columns;
     let idstr = "";
+    let pkstr = "";
 
     col.forEach(function (cl) {
         if (cl.is_pk){
             if (idstr!=""){
                 idstr+=" and ";
+                pkstr+=", ";
             }
             idstr+=cl.col+" = ${"+cl.nam+"}";
+            pkstr+=cl.col;
         }
     });
 
-    let query = "DELETE FROM "+tbl.tablename+" WHERE "+idstr;
+    let query = "DELETE FROM "+tbl.tablename+" WHERE "+idstr+" RETURNING "+pkstr;
     //console.log(query);
     //console.log(pks);
-    const ret = await db.any(query, pks);
+    const ret = await db.one(query, pks);
     return ret;
 }
 
