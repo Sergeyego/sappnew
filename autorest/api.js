@@ -56,6 +56,7 @@ module.exports = function (app) {
         if (restinfo.rels.has(req.params["name"])) {
             const rel = restinfo.rels.get(req.params["name"]);
             let like = req.query.like;
+            const key = req.query.key;
             let limit = "";
             if (!locale.isEmptyStr(like)){
                 like=like.replace(/'/g,"''");
@@ -67,17 +68,24 @@ module.exports = function (app) {
                 limit = (rel.lim===null) ? "" : String(rel.lim);
             }
             let query = "SELECT " + rel.col_id + " AS key, " + rel.col_val + " AS disp FROM " + rel.tablename;
-            if (!locale.isEmptyStr(rel.flt) || !locale.isEmptyStr(like)){
-                query+=" WHERE ";
+            if (!locale.isEmptyStr(rel.flt) || !locale.isEmptyStr(like) || !locale.isEmptyStr(key)){
+                let flt = "";
                 if (!locale.isEmptyStr(rel.flt)) {
-                    query += rel.flt;
-                    if (!locale.isEmptyStr(like)){
-                        query += " AND ";
+                    flt+=rel.flt;
+                }
+                if (!locale.isEmptyStr(key)) {
+                    if (flt.length){
+                        flt+=" AND ";
                     }
+                    flt+=rel.col_id+" = ${key}";
                 }
                 if (!locale.isEmptyStr(like)){
-                    query += rel.col_val+" ILIKE '"+like+"%' ESCAPE '/'";
+                    if (flt.length){
+                        flt+=" AND ";
+                    }
+                    flt += rel.col_val+" ILIKE '"+like+"%' ESCAPE '/'";
                 }
+                query+=" WHERE "+flt;
             }
             if (!locale.isEmptyStr(rel.sort)) {
                 query += " ORDER BY " + rel.sort;
@@ -86,7 +94,7 @@ module.exports = function (app) {
                 query += " LIMIT " + limit;
             }
             //console.log(query);
-            db.any(query)
+            db.any(query,{key : key})
                 .then((data) => {
                     res.json(data)
                 })

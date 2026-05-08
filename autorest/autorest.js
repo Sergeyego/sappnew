@@ -250,11 +250,11 @@ let getData = async function (tname, req) {
     let data = {};
     if (req.method=="GET"){
         data = await selectDb(tname, req.query.filter);
-    } else if (req.method=="PUT") {
+    } else if (req.method=="POST") {
         const pks = await insertDb(tname, req.body);
         data = await selectDb(tname, getFltStr(tname, pks), pks);
         //console.log(data);
-    } else if (req.method=="POST") {
+    } else if (req.method=="PUT") {
         const pks = await updateDb(tname, req.body);
         data = await selectDb(tname, getFltStr(tname, pks), pks);
         //console.log(data);
