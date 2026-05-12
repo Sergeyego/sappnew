@@ -246,7 +246,7 @@ let deleteDb = async function (tname, pks){
 }
 
 let getData = async function (tname, req) {
-    //console.log(req.method);
+    //console.log(req.method, tname);
     let data = {};
     if (req.method=="GET"){
         data = await selectDb(tname, req.query.filter);

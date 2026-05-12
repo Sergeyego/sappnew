@@ -2,10 +2,11 @@ const restinfo = require('../../../autorest/restinfo.js');
 const db = require('../../../postgres.js');
 const autorest = require('./../../../autorest/autorest.js');
 const locale = require('../../../locale.js');
+var bodyParser = require('body-parser');
 
 module.exports = function (app) {
     const tableName = "el_parti";
-    app.use("/elrtr/parti", async (req, res) => {
+    app.use("/elrtr/parti", bodyParser.json(), async (req, res) => {
         try {
             let data = await autorest.getData(tableName, req);
             let query = "select parti.id, " +
