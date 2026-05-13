@@ -1,6 +1,9 @@
 const db = require('../postgres.js');
 const restinfo = require('./restinfo.js');
 const locale = require('../locale.js');
+const sql = require('../sql.js');
+
+const sqlTableInfo = sql('autorest/tableinfo.sql');
 
 let updData = async function () {
     let err = "";
@@ -16,19 +19,10 @@ let updData = async function () {
 
         const mapTbl = new Map();
         for (let i = 0; i < tables.length; i++) {
-            const cols = await db.any("select rtd.nam, rtd.col, rtd.snam, c.udt_name, coalesce((tc.constraint_type = 'PRIMARY KEY'), false) as is_pk, " +
-                "rtd.editable, rtd.checkable ,rtd.dec, rr.nam as relnam " +
-                "from rest_tables rt " +
-                "inner join rest_tables_data rtd on rtd.id_table = rt.id " +
-                "inner join information_schema.columns c on c.column_name = rtd.col and c.table_name = rt.tablename " +
-                "left join information_schema.key_column_usage kcu on kcu.column_name = c.column_name and c.table_name = kcu.table_name " +
-                "left join information_schema.table_constraints tc on tc.constraint_name = kcu.constraint_name and tc.table_name = kcu.table_name " +
-                "left join rest_rels rr on rr.id = rtd.id_rel " +
-                "where rt.tablename = $1 order by rtd.id", [tables[i].tablename]);
-
+            const cols = await db.any(sqlTableInfo, [tables[i].tablename]);
+            //console.log(cols);
             mapTbl.set(tables[i].nam, { tablename: tables[i].tablename, sort: tables[i].sort, columns: cols });
         }
-
         restinfo.tables = mapTbl;
         restinfo.rels = mapRel;
     } catch (error) {

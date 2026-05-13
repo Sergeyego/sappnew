@@ -2,7 +2,7 @@ const restinfo = require('./restinfo.js');
 const locale = require('../locale.js');
 const autorest = require('./autorest.js');
 const db = require('../postgres.js');
-var bodyParser = require('body-parser');
+const bodyParser = require('body-parser');
 
 module.exports = function (app) {
     
