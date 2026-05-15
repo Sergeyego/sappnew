@@ -68,6 +68,7 @@ router.use(authMiddleware);
 
 require('./autorest/api.js')(router);
 require('./routes/api/elrtr/rest.js')(router);
+require('./routes/api/elrtr/report/report.js')(router);
 
 router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
