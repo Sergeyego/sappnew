@@ -96,7 +96,7 @@ let updData = async function () {
     return { error: err, ok: ok };
 }
 
-let getDisplay = function (val, type, dec) {
+let getDisplay = function (val, type, dec, hide_zero=false) {
     if (val===null) return "";
     let ret;
     switch (type) {
@@ -110,12 +110,12 @@ let getDisplay = function (val, type, dec) {
         case "int2":
         case "int4":
         case "int8":
-            ret=locale.insNumber(val,0);
+            ret=(hide_zero===true && val===0)? "" : locale.insNumber(val,0);
             break;
         case "float4":
         case "float8":
         case "numeric":
-            ret=locale.insNumber(val,dec);
+            ret=(hide_zero===true && val===0)? "" : locale.insNumber(val,dec);
             break;
         case "date":
             ret=locale.insDate(val);
@@ -330,7 +330,7 @@ let getRoData = async function (title, query, param, mapConf) {
     let arr_fields = new Array;
     for (let i=0; i<data.fields.length; i++){
         let ob = {};
-        ob["name"] = data.fields[i].name;
+        ob["nam"] = data.fields[i].name;
         ob["udt_name"] = mapType.get(data.fields[i].dataTypeID);
         ob["snam"] = (mapConf.has(data.fields[i].name) && Object.hasOwn(mapConf.get(data.fields[i].name),'name')) ? mapConf.get(data.fields[i].name).name : data.fields[i].name;
         ob["dec"] = (mapConf.has(data.fields[i].name) && Object.hasOwn(mapConf.get(data.fields[i].name),'dec')) ? mapConf.get(data.fields[i].name).dec : 1;
@@ -343,11 +343,11 @@ let getRoData = async function (title, query, param, mapConf) {
         let tbl_col = {};
         for (j=0; j<arr_fields.length; j++){
             let ob = {};
-            ob["edit_role"] = data.rows[i][arr_fields[j].name];
-            ob["display_role"] = getDisplay(data.rows[i][arr_fields[j].name],arr_fields[j].udt_name,arr_fields[j].dec);
+            ob["edit_role"] = data.rows[i][arr_fields[j].nam];
+            ob["display_role"] = getDisplay(data.rows[i][arr_fields[j].nam],arr_fields[j].udt_name,arr_fields[j].dec,true);
             ob["background_role"] = "#FFFFFF";
             ob["tooltip_role"] = "";
-            tbl_col[arr_fields[j].name] = ob;
+            tbl_col[arr_fields[j].nam] = ob;
         }
         arr_row.push(tbl_col);
     }

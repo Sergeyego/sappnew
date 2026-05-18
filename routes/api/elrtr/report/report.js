@@ -8,6 +8,7 @@ module.exports = function (app) {
             try {
                 let mapCol = new Map();
                 mapCol.set("marka", {name : "Марка"});
+                mapCol.set("diam", {name : "Диам."});
                 let data = await autorest.getRoData("По партиям", sqlByPart,null,mapCol);
                 /*if (data.length) {
                     const id_part = Number(data[0].id_part.edit_role);
