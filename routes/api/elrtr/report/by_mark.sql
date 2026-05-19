@@ -1,7 +1,9 @@
-select e.marka, p.diam, NULL, ev.nam, ep.pack_ed, 
-sum(c.ostbeg), sum(c.pack), sum(c.thermo), sum(c.perepack-c.decperepack) as perepack, sum(c.perepackbreak), 
-sum(c.arch - c.archout) as arch, sum(c.isp), sum(c.selfn), sum(c.oth), sum(c.war), sum(c.warout), sum(c.ostend) 
-from calc_prod_report('%1','%2') as c 
+select e.marka as marka, p.diam as diam, ev.nam as var, ep.pack_ed as pack_ed, 
+sum(c.ostbeg) as ostbeg, sum(c.pack) as pack, sum(c.thermo) as thermo, 
+sum(c.perepack-c.decperepack) as perepack, sum(c.perepackbreak) as perepackbreak, 
+sum(c.arch - c.archout) as arch, sum(c.isp) as isp, sum(c.selfn) as selfn, sum(c.oth) as oth, 
+sum(c.war) as war, sum(c.warout) as warout, sum(c.ostend) as ostend
+from calc_prod_report($1::date -1, $2::date) as c 
 inner join parti p on p.id = c.id_part 
 inner join elrtr e on e.id = p.id_el 
 inner join elrtr_vars ev on ev.id = p.id_var 

@@ -359,5 +359,6 @@ let getRoData = async function (title, query, param, mapConf) {
 module.exports = {
     getRoData,
     getData,
-    updData
+    updData,
+    getDisplay
 };
