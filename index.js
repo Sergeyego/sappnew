@@ -66,17 +66,18 @@ function authMiddleware(req, res, next) {
 const router = express.Router();
 router.use(authMiddleware);
 
+require('./xlsx/api.js')(router);
 require('./autorest/api.js')(router);
 require('./routes/api/elrtr/rest.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
 
-router.get('/profile', (req, res) => {
+/*router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
 });
 
 router.get('/other', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
-});
+});*/
 
 app.use("/api", router);
 
