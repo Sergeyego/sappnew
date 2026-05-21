@@ -67,6 +67,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 require('./xlsx/api.js')(router);
+require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
 require('./routes/api/elrtr/rest.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);

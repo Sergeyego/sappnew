@@ -4,11 +4,15 @@ const jsonParser = bodyParser.json({ limit: '10mb' });
 
 let getNumFmt = function (id_type, dec) {
     let fmt="";
-    if (id_type==6){
+    if (id_type==6 && dec>0){
         const code='0';
         fmt="# ##0."+code.padEnd(dec,'0');
-    } else if (id_type==8){
+    } else if (id_type==2){
         fmt="0";
+    } else if (id_type==14) {
+        fmt="dd.mm.yyyy";
+    } else if (id_type==16) {
+        fmt="dd.mm.yyyy HH:MM";
     }
     return fmt;
 }
@@ -71,6 +75,9 @@ module.exports = function (app) {
                         row.getCell(key).numFmt = getNumFmt(id_type, dec);
                         if (id_type === 6 && row.getCell(key).value === 0.0) {
                             row.getCell(key).value = null;
+                        }
+                        if (id_type===14 || id_type===16){
+                            row.getCell(key).value = new Date(row.getCell(key).value);
                         }
                     }
                     // Тонкие границы для всех ячеек с данными
