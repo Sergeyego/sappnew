@@ -1,6 +1,6 @@
 const restinfo = require('../../../autorest/restinfo.js');
 const db = require('../../../postgres.js');
-const autorest = require('./../../../autorest/autorest.js');
+const autorest = require('../../../autorest/autorest.js');
 const locale = require('../../../locale.js');
 var bodyParser = require('body-parser');
 

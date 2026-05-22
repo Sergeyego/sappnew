@@ -1,4 +1,7 @@
 const db = require('../postgres.js');
+const autorest = require('../autorest/autorest.js');
+const bodyParser = require('body-parser');
+const jsonParser = bodyParser.json({ limit: '10mb' });
 
 module.exports = function (app) {
 
@@ -17,7 +20,7 @@ module.exports = function (app) {
     });
 
     app.get("/olap/info/:id", async (req, res) => {
-        db.one("select nam as nam, array_to_json(columns) as columns, dc as dec from olaps where id = $1", [Number(req.params["id"])])
+        db.one("select nam as nam, array_to_json(columns) as columns, dc as dec, query as qu from olaps where id = $1", [Number(req.params["id"])])
             .then((data) => {
                 res.json(data);
             })
@@ -26,5 +29,15 @@ module.exports = function (app) {
                 res.status(500).type('text/plain');
                 res.send(error.message);
             })
+    });
+
+    app.post("/olap/data", jsonParser, async (req, res) => {
+        try {
+            let data = await autorest.getRoData(req.body.nam, req.body.qu, [], req.body.columns, req.body.dec);
+            res.json(data);
+        } catch (error) {
+            console.error(error);
+            res.status(500).send(error.message);
+        }
     });
 }

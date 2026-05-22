@@ -11,7 +11,7 @@ for (i=1; i<5; i++){
 
 let insNumber = function (val, dec){
     if (val===null) return ""; 
-    if (dec>0 && dec!=null){
+    if (dec>0 && dec!=null && dec!=undefined){
         if (dec<5){
             return mapDecFormatter.get(dec).format(val);
         } else {

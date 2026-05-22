@@ -23,12 +23,13 @@ module.exports = function (app) {
         try {
             //console.log(req.body);
             // Создаем рабочую книгу
+            let totalWidth = 0.0;
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Лист 1');
             worksheet.headerFooter.oddHeader = "&L" + req.body.title;
 
             worksheet.pageSetup.paperSize = 9;
-            worksheet.pageSetup.orientation = 'landscape';
+            worksheet.pageSetup.orientation = 'portrait';
             worksheet.pageSetup.fitToPage = true;
             worksheet.pageSetup.fitToWidth = 1;  // Вписать в 1 страницу по ширине
             worksheet.pageSetup.fitToHeight = 0;
@@ -50,7 +51,16 @@ module.exports = function (app) {
                     "width": req.body.columns[j].width / 7.0
                 };
                 columns.push(obj);
+                totalWidth+=(req.body.columns[j].width / 7.0);
             }
+
+            if (totalWidth>150){
+                worksheet.pageSetup.orientation = 'landscape';
+            }
+            if (totalWidth>500){
+                worksheet.pageSetup.fitToWidth = 0;
+            }
+
             worksheet.columns = columns;
 
             for (let i = 0; i < req.body.rows.length; i++) {
@@ -60,7 +70,7 @@ module.exports = function (app) {
             // Стилизуем шапку таблицы (строка 1)
             const headerRow = worksheet.getRow(1);
             headerRow.font = { name: 'Arial', size: 10, bold: true };
-            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true};
             headerRow.height = req.body.header_height;
 
             // Задаем числовые форматы и границы для ячеек с данными

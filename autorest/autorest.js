@@ -321,19 +321,29 @@ let getData = async function (tname, req) {
     return data;
 }
 
-let getRoData = async function (title, query, param, mapConf) {
+let getRoData = async function (title, query, param, headers, dec, decConf) {
     const data = await db.result(query,param);
 
     let res = {};
     res['title']=title;
 
     let arr_fields = new Array;
+    let decimal = 0;
     for (let i=0; i<data.fields.length; i++){
+        const colNam=data.fields[i].name;
+        const udtName=mapType.get(data.fields[i].dataTypeID);
+        if (decConf!==undefined && Object.hasOwn(decConf,colNam)){
+            decimal=decConf[colNam];
+        } else if (udtName==="float4" || udtName==="float8" || udtName=="numeric"){
+            decimal=(dec!=undefined && dec!=null)? dec : 0;
+        } else {
+            decimal=0;
+        }
         let ob = {};
-        ob["nam"] = data.fields[i].name;
-        ob["udt_name"] = mapType.get(data.fields[i].dataTypeID);
-        ob["snam"] = (mapConf.has(data.fields[i].name) && Object.hasOwn(mapConf.get(data.fields[i].name),'name')) ? mapConf.get(data.fields[i].name).name : data.fields[i].name;
-        ob["dec"] = (mapConf.has(data.fields[i].name) && Object.hasOwn(mapConf.get(data.fields[i].name),'dec')) ? mapConf.get(data.fields[i].name).dec : 1;
+        ob["nam"] = colNam;
+        ob["udt_name"] = udtName;
+        ob["snam"] = (headers!==undefined && headers.length) ? headers[i] : colNam;
+        ob["dec"] = decimal;
         arr_fields.push(ob);
     }
     res['fields']=arr_fields;
@@ -353,7 +363,7 @@ let getRoData = async function (title, query, param, mapConf) {
     }
     res['rows']=arr_row;
 
-    return /*data*/res;
+    return res;
 }
 
 module.exports = {
