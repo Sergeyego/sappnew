@@ -330,20 +330,25 @@ let getRoData = async function (title, query, param, headers, dec, decConf) {
     let arr_fields = new Array;
     let decimal = 0;
     for (let i=0; i<data.fields.length; i++){
+        let width=0;
         const colNam=data.fields[i].name;
         const udtName=mapType.get(data.fields[i].dataTypeID);
-        if (decConf!==undefined && Object.hasOwn(decConf,colNam)){
-            decimal=decConf[colNam];
+        if (decConf!==undefined && Object.hasOwn(decConf,colNam) && Object.hasOwn(decConf[colNam],"dec")){
+            decimal=decConf[colNam].dec;
         } else if (udtName==="float4" || udtName==="float8" || udtName=="numeric"){
             decimal=(dec!=undefined && dec!=null)? dec : 0;
         } else {
             decimal=0;
+        }
+        if (decConf!==undefined && Object.hasOwn(decConf,colNam) && Object.hasOwn(decConf[colNam],"width")){
+            width=decConf[colNam].width;
         }
         let ob = {};
         ob["nam"] = colNam;
         ob["udt_name"] = udtName;
         ob["snam"] = (headers!==undefined && headers.length) ? headers[i] : colNam;
         ob["dec"] = decimal;
+        ob["width"] = width;
         arr_fields.push(ob);
     }
     res['fields']=arr_fields;

@@ -1,4 +1,4 @@
-select jp.id_param, gp.nam, jp.val, jp.temp, jp.dat from 
+select gp.nam, jp.val, jp.temp, jp.dat from 
 (select id_load, id_param, max(dat) as dat 
 from glass_cons_load_par as p where id_load = $1 
 and dat<=(select dat_part from parti where id = $2 ) 
