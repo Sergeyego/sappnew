@@ -1,7 +1,7 @@
-const restinfo = require('../../../autorest/restinfo.js');
-const db = require('../../../postgres.js');
-const autorest = require('../../../autorest/autorest.js');
-const locale = require('../../../locale.js');
+const restinfo = require('../../../../autorest/restinfo.js');
+const db = require('../../../../postgres.js');
+const autorest = require('../../../../autorest/autorest.js');
+const locale = require('../../../../locale.js');
 var bodyParser = require('body-parser');
 
 let getChemTu = async function(id_part){
@@ -164,6 +164,34 @@ module.exports = function (app) {
                 }
             }
             res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain');
+            res.send(error.message);
+        }
+    });
+
+    app.post("/elrtr/chem/load/:id_part/:id_dev", bodyParser.json(), async (req, res) => {
+        const id_part = Number(req.params["id_part"]);
+        const id_dev = Number(req.params["id_dev"]);
+        try {
+            let ids={};
+            const tuChem = await db.any("select c.id_chem as id, ct.sig as sig from chem_tu as c " +
+                "inner join chem_tbl ct on ct.id = c.id_chem " +
+                "where c.id_el = (select p.id_el from parti as p where p.id = $1 ) " +
+                "and c.id_var = (select p.id_var from parti as p where p.id = $1 )", [id_part]);
+            if (tuChem.length) {
+                var query = "insert into parti_chem (id_part, id_dev, id_chem, kvo) values ";
+                for (let i=0; i<tuChem.length; i++) {
+                    const kvo = Object.hasOwn(req.body, tuChem[i].sig) ? req.body[tuChem[i].sig] : 0.0;
+                    if (i!=0) {
+                        query += ", ";
+                    }
+                    query += "("+id_part+", "+id_dev+", "+tuChem[i].id+", "+kvo+ ")";
+                }
+                query+=" returning id";
+                ids = await db.any(query);
+            }
+            res.json(ids);
         } catch (error) {
             res.status(500).type('text/plain');
             res.send(error.message);

@@ -69,7 +69,7 @@ router.use(authMiddleware);
 require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
-require('./routes/api/elrtr/rest.js')(router);
+require('./routes/api/elrtr/lab/lab.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
 require('./routes/api/elrtr/glass/partGlass.js')(router);
 require('./routes/api/elrtr/stat/stat.js')(router);
