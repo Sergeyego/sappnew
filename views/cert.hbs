@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .globalstyle {
+                width:830px;
+                font-family:'Droid Sans';
+                font-size:13px;
+                font-weight:400;
+                font-style:normal;
+                text-indent:0px;
+                white-space: normal;
+                vertical-align: middle;
+                {{{back}}}
+            }
+            .logostyle{
+                text-align:center;
+            }
+            .addrtext {
+                 font-style:italic;
+                 text-align: right;
+            }
+            .headertext {
+                font-family:'Droid Serif';
+                font-size:16px;
+                text-align: center;
+            }
+            .boldtext {
+                font-weight:600;
+            }
+            .tablestyle{
+                width:830px;
+                border-color:#000000;
+                text-align:center;
+                margin-left:0px;
+                margin-right:0px;
+            }
+            .tableheadstyle{
+                width:100%;
+                vertical-align: middle;
+                line-height: 1;
+                padding: 0px;
+            }
+            .signstyle{
+                white-space: pre-wrap;
+                text-align: left;
+            }
+            .centeralign{
+                text-align: center;
+            }
+            .leftalign{
+                text-align: left;
+            }
+            .rightalign{
+                text-align: right;
+            }
+        </style>
+        <title>{{header}}</title>
+    </head>
+    <body class="globalstyle">
+        <table class="tableheadstyle">
+            <tr>
+                <td>
+                    <div class="logostyle"><img src="/logo.png" alt="logo" height="140"></div>
+                </td>
+                <td>
+                    <div class="addrtext">{{{fnam}}}</div>
+                    <div class="addrtext">{{{adr}}}</div>
+                    <div class="addrtext">{{{tel}}}</div>
+                </td>
+            </tr>
+        </table>
+        <div class="rightalign">
+            {{{sertpic}}}
+        </div>
+        <p class="headertext">{{header}}</p>
+        <div class="leftalign"><span class="boldtext">{{tutitle}}</span>{{tustr}}</div>
+        {{{maintbl}}}
+		<p>{{{chemtbl}}}</p>
+        <p>{{{mechtbl}}}</p>
+        <p class="headertext">{{srtheader}}</p>
+        {{{serttbl}}}
+        <div class="leftalign">{{{sertapp}}}</div>
+        <div class="boldtext">{{poltitle}}</div>
+        <div class="leftalign">{{{pol}}}</div>
+        <div class="centeralign">{{{note}}}</div>
+        <div class="boldtext">{{constitle}}</div>
+        <div class="leftalign">{{{cons}}}</div>
+        <div class="centeralign"><span class="boldtext">{{dattitle}}</span>{{dat}}</div>
+        <div class="signstyle"><img src="{{qrsrc}}" alt="qrcode" height="180">{{{sign}}}</div>
+    </body>
+</html>

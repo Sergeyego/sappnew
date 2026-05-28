@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .globalstyle {
+                width:530px;
+                font-family:'Droid Sans';
+                font-size:16px;
+                font-weight:400;
+                font-style:normal;
+                text-indent:0;
+                white-space: normal;
+                vertical-align: middle;
+                line-height: 1.7;
+            }
+            .imgstyle{
+                text-align:center;
+                line-height: 1;
+            }
+            .headertext {
+                font-size:20px;
+                text-align: center;
+                line-height: 1;
+            }
+            .boldtext {
+                font-size:16px;
+                font-weight:600;
+                margin-left:10px;
+                margin-right:10px;
+            }
+            .spantext {
+                font-size:9px;
+                line-height: 1;
+                text-align:center;
+            }
+            .centeralign{
+                text-align: center;
+            }
+            .leftalign{
+                text-align: left;
+            }
+            .justifyalign{
+                line-height: 1.0;
+                text-align: justify;
+                text-indent: 30px;
+            }
+            .rightalign{
+                text-align: right;
+            }
+            .tablestyle{
+                width:100%;
+                text-align:center;
+                line-height: 1;
+                padding: 0px;
+            }
+        </style>
+        <title>УПАКОВОЧНЫЙ ЛИСТ</title>
+    </head>
+    <body class="globalstyle">
+        <div class="imgstyle"><img src="/barcode/code128/350.png?data={{pallet}}&height=80" alt="barcode" height="80"></div>
+        <br>
+        <div class="headertext"><b>УПАКОВОЧНЫЙ ЛИСТ</b></div>
+        <div class="headertext">ЭЛЕКТРОДЫ ПОКРЫТЫЕ МЕТАЛЛИЧЕСКИЕ<br>ДЛЯ РУЧНОЙ ДУГОВОЙ СВАРКИ</div>
+        <br>
+        <div class="leftalign">Марка <b class=boldtext>{{marka}}</b> Ø <b class=boldtext>{{diam}}</b> мм</div>
+        <div class="leftalign">Партия <b class=boldtext>{{n_s}}</b>  Дата выпуска <b class=boldtext>{{dat_part}}</b></div>
+        <div class="leftalign">Количество мест <b class=boldtext>{{pack_kvo}}</b> Масса нетто кг <b class=boldtext>{{kvo}}</b></div>
+        <div class="leftalign">Дата упаковки <b class=boldtext>{{dat_pack}}</b></div>
+        <div class="leftalign">Упаковщик ______________ <b class=boldtext>{{packer}}</b></div>
+        <div class="imgstyle"><img src="/qrcode/180.png?data={{qrdata}}" alt="qrcode" height="150"></div>
+        <br>
+        <div class="justifyalign">Электроды следует хранить в сухих, отапливаемых помещениях при температуре не ниже +15 ºС в условиях, предохраняющих их от загрязнения, увлажнения и механических повреждений.!</div>
+    </body>
+</html>

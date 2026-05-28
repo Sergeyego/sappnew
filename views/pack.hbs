@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .globalstyle {
+                width:530px;
+                font-family:'Droid Sans';
+                font-size:16px;
+                font-weight:400;
+                font-style:normal;
+                text-indent:0;
+                white-space: normal;
+                vertical-align: middle;
+                line-height: 1.4;
+            }
+            .imgstyle{
+                text-align:center;
+                line-height: 1;
+            }
+            .headertext {
+                font-size:20px;
+                text-align: center;
+                line-height: 1;
+            }
+            .boldtext {
+                font-size:22px;
+                font-weight:600;
+                margin-left:10px;
+                margin-right:10px;
+            }
+            .spantext {
+                font-size:9px;
+                line-height: 1;
+                text-align:center;
+            }
+            .centeralign{
+                text-align: center;
+            }
+            .leftalign{
+                text-align: left;
+            }
+            .leftalign2{
+                text-align: left;
+                line-height: 1.4;
+            }
+            .justifyalign{
+                line-height: 1.0;
+                text-align: justify;
+                text-indent: 30px;
+            }
+            .rightalign{
+                text-align: right;
+            }
+            .tablestyle{
+                width:100%;
+                text-align:center;
+                line-height: 1;
+                padding: 0px;
+            }
+        </style>
+        <title>УПАКОВОЧНЫЙ ЛИСТ</title>
+    </head>
+    <body class="globalstyle">
+        <div class="imgstyle"><img src="/barcode/code128/350.png?data={{pallet}}&height=80" alt="barcode" height="80"></div>
+        <div class="headertext"><b>УПАКОВОЧНЫЙ ЛИСТ</b></div>
+        <div class="headertext">ЭЛЕКТРОДЫ ПОКРЫТЫЕ МЕТАЛЛИЧЕСКИЕ<br>ДЛЯ РУЧНОЙ ДУГОВОЙ СВАРКИ</div>
+        <table class="tablestyle">
+            <tr>
+                <td>
+                    <div class="leftalign2">Марка <b class=boldtext>{{marka}}</b> Ø <b class=boldtext>{{diam}}</b> мм</div>
+                    <div class="leftalign2">Партия <b class=boldtext>{{n_s}}</b></div>
+                    <div class="leftalign2">Дата выпуска <b class=boldtext>{{dat_part}}</b> г.</div>
+                </td>
+                <td class="imgstyle"><img src="/qrcode/150.png?data={{qrdata}}" alt="qrcode" height="130"></td>
+            </tr>
+        </table>
+        <ul class="leftalign">
+            <li>
+                <div>Дата сортировки {{{dat_sort}}}</div>
+                <div>Количество мест {{{pack_kvo_sort}}} Масса нетто {{{kvo_sort}}} кг</div>
+                <table class="tablestyle" align="left">
+                    <tr class="leftalign">
+                        <td>Сортировщик</td><td>______________</td><td>{{rab_sort}}</td>
+                    </tr>
+                    {{{sign_rab_sort}}}
+                    <tr class="leftalign">
+                        <td>Мастер</td><td>______________</td><td>{{master_sort}}</td>
+                    </tr>
+                    {{{sign_master_sort}}}
+                </table>
+            </li>
+            <li>
+                <div>Дата сортировки {{{dat_dosort}}}</div>
+                <div>Количество мест {{{pack_kvo_dosort}}} Масса нетто {{{kvo_dosort}}} кг</div>
+                <table class="tablestyle" align="left">
+                    <tr class="leftalign">
+                        <td>Сортировщик</td><td>______________</td><td>{{rab_dosort}}</td>
+                    </tr>
+                    {{{sign_rab_dosort}}}
+                    <tr class="leftalign">
+                        <td>Мастер</td><td>______________</td><td>{{master_dosort}}</td>
+                    </tr>
+                    {{{sign_master_dosort}}}
+                </table>
+            </li>
+            <li>
+                <div>Дата упаковки в т/у плёнку {{{dat_tpack}}}</div>
+                <div>Количество мест {{{pack_kvo_tpack}}} Масса нетто {{{kvo_tpack}}} кг</div>
+                <table class="tablestyle" align="left">
+                    <tr class="leftalign">
+                        <td>Упаковщик</td><td>______________</td><td>{{rab_tpack}}</td>
+                    </tr>
+                    {{{sign_rab_tpack}}}
+                    <tr class="leftalign">
+                        <td>Мастер</td><td>______________</td><td>{{master_tpack}}</td>
+                    </tr>
+                    {{{sign_master_tpack}}}
+                </table>
+            </li>
+        </ul>
+        <div class="justifyalign">Электроды следует хранить в сухих, отапливаемых помещениях при температуре не ниже +15 ºС в условиях, предохраняющих их от загрязнения, увлажнения и механических повреждений.</div>
+    </body>
+</html>

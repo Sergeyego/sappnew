@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .globalstyle {
+                width:530px;
+                font-family:'Droid Sans';
+                font-size:13px;
+                font-weight:400;
+                font-style:normal;
+                text-indent:0;
+                white-space: normal;
+                vertical-align: top;
+                line-height: 1.2;
+            }
+            .boldtext {
+                font-weight:600;
+                margin-left:10px;
+                margin-right:10px;
+            }
+            .spantext {
+                font-size:10px;
+                line-height: 1;
+                text-align:center;
+            }
+            .centeralign{
+                text-align: center;
+            }
+            .leftalign{
+                text-align: left;
+            }
+            .rightalign{
+                text-align: right;
+            }
+            .signtablestyle{
+                text-align:center;
+                line-height: 1;
+                padding: 0px;
+            }
+            .tablestyle{
+                border-color:gray;
+                text-align:center;
+                line-height: 1;
+                margin-left:0px;
+                margin-right:0px;
+            }
+        </style>
+        <title>{{title}}</title>
+    </head>
+    <body class="globalstyle">
+        <div class="rightalign">{{{barcode}}}</div>
+        <div class="centeralign">{{{head}}}</div>
+        <div class="centeralign"><b>{{oper}}</b></div>
+        <div class="leftalign"><b>Кому: </b>{{to}}</div>
+        <div class="leftalign"><b>От кого: </b>{{from}}</div>
+        {{{table}}}
+        <br>
+        <table class="signtablestyle" align="left">
+            <tr class="leftalign">
+                <td><b>Сдал</b></td>
+                <td>______________</td>
+                <td>{{passed}} </td>
+                <td><b>Принял</b></td>
+                <td>______________</td>
+                <td>{{accepted}}</td>
+            </tr>
+            <tr class="spantext">
+                <td class="centeralign"></td>
+                <td class="centeralign">(подпись)</td>
+                <td class="leftalign">{{dec}}</td>
+                <td class="centeralign"></td>
+                <td class="centeralign">(подпись)</td>
+                <td class="leftalign">{{dec}}</td>
+            </tr>
+        </table>
+        {{#if drv}}
+        <br>
+        <table class="signtablestyle" align="left">
+            <tr class="leftalign">
+                <td><b>Водитель</b></td>
+                <td>______________</td>
+                <td>________________</td>
+            </tr>
+            <tr class="spantext">
+                <td class="centeralign"></td>
+                <td class="centeralign">(подпись)</td>
+                <td class="leftalign">{{dec}}</td>
+            </tr>
+        </table>
+        {{/if}}
+    </body>
+</html>

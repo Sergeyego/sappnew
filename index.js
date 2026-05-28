@@ -20,6 +20,9 @@ const hashFunc = crypto.createHash('sha256').update(options.key).digest('hex');
 
 autorest.updData();
 
+app.set('view engine', 'hbs');
+app.set('views', './views');
+
 app.get('/', (req, res) => {
     res.status(200).type('text/plain');
     res.send('Welcome to the server');
@@ -74,6 +77,16 @@ require('./routes/api/elrtr/lab/lab.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
 require('./routes/api/elrtr/glass/partGlass.js')(router);
 require('./routes/api/elrtr/stat/stat.js')(router);
+
+require('./routes/api/elrtr/invoices/workshop.js')(router);
+require('./routes/api/elrtr/invoices/workshopper.js')(router);
+require('./routes/api/elrtr/invoices/warehouse.js')(router);
+require('./routes/api/elrtr/invoices/warehouseday.js')(router);
+require('./routes/api/elrtr/invoices/perepack.js')(router);
+require('./routes/api/elrtr/invoices/self.js')(router);
+require('./routes/api/elrtr/invoices/selfper.js')(router);
+
+require('./routes/api/elrtr/pack/packnakl.js')(router);
 
 /*router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
