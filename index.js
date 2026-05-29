@@ -87,6 +87,7 @@ require('./routes/api/elrtr/invoices/self.js')(router);
 require('./routes/api/elrtr/invoices/selfper.js')(router);
 
 require('./routes/api/elrtr/pack/packnakl.js')(router);
+require('./routes/api/elrtr/pack/pack.js')(router);
 
 /*router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
