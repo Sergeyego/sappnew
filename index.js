@@ -69,6 +69,18 @@ function authMiddleware(req, res, next) {
 const router = express.Router();
 router.use(authMiddleware);
 
+router.get('/groups', async (req, res) => {
+    try {
+        const groups = await db.any("select rug.id_group as id_group from rest_user_group rug " +
+            "inner join rest_users ru on ru.id = rug.id_user " +
+            "where ru.username = $1", [req.user.username]);
+        res.json(groups);
+    } catch (error) {
+        res.status(500).type('text/plain');
+        res.send(error.message);
+    }
+});
+
 require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);

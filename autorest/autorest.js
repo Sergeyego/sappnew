@@ -72,7 +72,8 @@ let updData = async function () {
     let err = "";
     let ok = true;
     try {
-        const rels = await db.any("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt from rest_rels rr ");
+        const rels = await db.any("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
+            "left join rest_tables rt on rt.id = rr.id_tbl");
         const tables = await db.any("select nam, tablename, sort from rest_tables");
 
         const mapRel = new Map();
