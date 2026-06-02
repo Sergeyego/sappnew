@@ -1,7 +1,7 @@
 module.exports = function (app) {
     const db = require('../../../../postgres.js');
     const doc = require('../../../../invoice.js');
-    app.get("/invoices/elrtr/selfper/:type/:beg/:end", async (req, res) => {
+    app.get("/elrtr/invoices/selfper/:type/:beg/:end", async (req, res) => {
         db.one("select date_part('month',$2::date)  as num, NULL as dat, sc.nam  as tnam, nd.nam as dnam, ne.nam as efnam, ne2.nam as etnam, "+
             "to_char($1::date, 'DD.MM.YYYY')||'-'||to_char($2::date, 'DD.MM.YYYY') as period "+
             "from self_cons sc "+

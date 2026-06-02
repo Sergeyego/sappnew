@@ -1,0 +1,15 @@
+[Unit]
+Description=sappnew nodejs application
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+ExecStart=/usr/bin/node /opt/node/sappnew/index.js
+Restart=on-failure
+User=sbd
+Group=sbd
+Environment=NODE_ENV=production PORT=9000
+WorkingDirectory=/opt/node/sappnew
+
+[Install]
+WantedBy=multi-user.target

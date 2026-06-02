@@ -64,42 +64,48 @@ let checkVal = function (tu, val) {
 }
 
 module.exports = function (app) {
-    app.use("/elrtr/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/parti", bodyParser.json(), async (req, res) => {
         const tableName = "el_parti";
         try {
             let data = await autorest.getData(tableName, req);
-            let query = "select parti.id, " +
-                "(select case when exists(select id from parti_chem where id_part=parti.id) " +
-                "then 1 else 0 end " +
-                "+ " +
-                "case when exists(select id from parti_mech where id_part=parti.id) " +
-                "then 2 else 0 end " +
-                "as r) from parti";
-            if (!locale.isEmptyStr(req.query.filter)) {
-                query += " where " + req.query.filter;
-            }
-            const state = await db.any(query);
-            mapStat = new Map();
-            for (i = 0; i < state.length; i++) {
-                let col = "#FFFFFF";
-                const r = state[i].r;
-                if (r == 1) {
-                    col = "#FFAAAA";
-                } else if (r == 2) {
-                    col = "#AAFFAA";
-                } else if (r == 3) {
-                    col = "#FFFF00";
+            if (req.method != "DELETE") {
+                let query = "select parti.id, " +
+                    "(select case when exists(select id from parti_chem where id_part=parti.id) " +
+                    "then 1 else 0 end " +
+                    "+ " +
+                    "case when exists(select id from parti_mech where id_part=parti.id) " +
+                    "then 2 else 0 end " +
+                    "as r) from parti";
+                if ((req.method == "GET") && !locale.isEmptyStr(req.query.filter)) {
+                    query += " where " + req.query.filter;
+                } else if ((req.method == "POST" || req.method == "PUT") && data.length) {
+                    query += " where parti.id = " + data[0]["id"].edit_role;
+                } else {
+                    query += " where parti.id = -1";
                 }
-                mapStat.set(state[i].id, col);
-            }
-            const tbl = restinfo.tables.get(tableName);
-            const col = tbl.columns;
-            for (i = 0; i < data.length; i++) {
-                col.forEach(function (cl) {
-                    if (mapStat.has(data[i].id.edit_role)) {
-                        data[i][cl.nam].background_role = mapStat.get(data[i].id.edit_role);
+                const state = await db.any(query);
+                mapStat = new Map();
+                for (i = 0; i < state.length; i++) {
+                    let col = "#FFFFFF";
+                    const r = state[i].r;
+                    if (r == 1) {
+                        col = "#FFAAAA";
+                    } else if (r == 2) {
+                        col = "#AAFFAA";
+                    } else if (r == 3) {
+                        col = "#FFFF00";
                     }
-                })
+                    mapStat.set(state[i].id, col);
+                }
+                const tbl = restinfo.tables.get(tableName);
+                const col = tbl.columns;
+                for (i = 0; i < data.length; i++) {
+                    col.forEach(function (cl) {
+                        if (mapStat.has(data[i].id.edit_role)) {
+                            data[i][cl.nam].background_role = mapStat.get(data[i].id.edit_role);
+                        }
+                    })
+                }
             }
             res.json(data);
         } catch (error) {
@@ -108,7 +114,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/chem/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/chem/parti", bodyParser.json(), async (req, res) => {
         const tableName = "el_parti_chem";
         try {
             let data = await autorest.getData(tableName, req);
@@ -139,7 +145,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/mech/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/mech/parti", bodyParser.json(), async (req, res) => {
         const tableName = "el_parti_mech";
         try {
             let data = await autorest.getData(tableName, req);
@@ -170,7 +176,7 @@ module.exports = function (app) {
         }
     });
 
-    app.post("/elrtr/chem/load/:id_part/:id_dev", bodyParser.json(), async (req, res) => {
+    app.post("/elrtr/lab/chem/load/:id_part/:id_dev", bodyParser.json(), async (req, res) => {
         const id_part = Number(req.params["id_part"]);
         const id_dev = Number(req.params["id_dev"]);
         try {

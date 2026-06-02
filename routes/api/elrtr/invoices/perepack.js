@@ -1,7 +1,7 @@
 module.exports = function (app) {
     const db = require('../../../../postgres.js');
     const doc = require('../../../../invoice.js');
-    app.get("/invoices/elrtr/perepack/:invId", async (req, res) => {
+    app.get("/elrtr/invoices/perepack/:invId", async (req, res) => {
         db.one("select n.num as num, n.dat as dat, t.nam as tnam, d.nam as dnam, ef.nam as efnam, et.nam as etnam from parti_nakl as n "+
                 "inner join parti_nakl_tip as t on t.id=n.tip "+
                 "inner join nakl_doc as d on t.id_doc=d.id "+

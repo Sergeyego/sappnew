@@ -117,7 +117,7 @@ app.use((req, res, next) => {
 })
 
 /*app.listen(port, () => {
-    console.log(`Server app listening on port ${port}`);
+    console.log(`HTTP server running on port ${port}`);
 })*/
 
 https.createServer(options, app).listen(port, () => {
