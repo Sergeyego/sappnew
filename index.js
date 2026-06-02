@@ -81,6 +81,17 @@ router.get('/groups', async (req, res) => {
     }
 });
 
+router.put('/users', bodyParser.json(), async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const data = await db.any("update rest_users set hashpass = crypt($1, gen_salt('bf')) where username = $2", [password, username]);
+        res.json(data);
+    } catch (error) {
+        res.status(500).type('text/plain');
+        res.send(error.message);
+    }
+});
+
 require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
