@@ -95,6 +95,9 @@ router.put('/users', bodyParser.json(), async (req, res) => {
 require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
+
+require('./routes/api/elrtr/dosage/rcp.js')(router);
+
 require('./routes/api/elrtr/parti/parti.js')(router);
 require('./routes/api/elrtr/lab/lab.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
