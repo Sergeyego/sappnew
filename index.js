@@ -22,8 +22,10 @@ global.tables = new Map();
 global.rels = new Map();
 
 autorest.updData()
-    .then(() => {
-        console.log("Данные успешно получены.");
+    .then((inf) => {
+        if (inf.ok){
+            console.log("Данные успешно получены.");
+        }
     })
     .catch((error) => {
         console.log("Не удалось обновить данные. " + error.message);
