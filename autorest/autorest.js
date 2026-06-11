@@ -1,5 +1,4 @@
 const db = require('../postgres.js');
-const restinfo = require('./restinfo.js');
 const locale = require('../locale.js');
 const sql = require('../sql.js');
 
@@ -87,8 +86,8 @@ let updData = async function () {
             //console.log(cols);
             mapTbl.set(tables[i].nam, { tablename: tables[i].tablename, sort: tables[i].sort, columns: cols });
         }
-        restinfo.tables = mapTbl;
-        restinfo.rels = mapRel;
+        global.tables = mapTbl;
+        global.rels = mapRel;
     } catch (error) {
         console.log(error.message);
         err = error.message;
@@ -136,7 +135,7 @@ let getDisplay = function (val, type, dec, hide_zero=false) {
 }
 
 let getFltStr = function (tname, obj){
-    const tbl = restinfo.tables.get(tname);
+    const tbl = global.tables.get(tname);
     let flt = "";
     for (const key in obj) {
         if (flt!=""){
@@ -148,7 +147,7 @@ let getFltStr = function (tname, obj){
 } 
 
 let selectDb = async function (tname, flt, params){
-    const tbl = restinfo.tables.get(tname);
+    const tbl = global.tables.get(tname);
     const col = tbl.columns;
     //console.log(col);
     let colstr = "";
@@ -163,7 +162,7 @@ let selectDb = async function (tname, flt, params){
             if (coljoin!=""){
                 coljoin+=", ";
             }
-            const rel=restinfo.rels.get(cl.relnam);
+            const rel=global.rels.get(cl.relnam);
             coljoin+=cl.relnam+"."+rel.col_val+" AS jcol_"+cl.nam;
             joinstr+="LEFT JOIN "+rel.tablename+" AS "+cl.relnam+" ON "+cl.relnam+"."+rel.col_id+" = "+tbl.tablename+"."+cl.col+" ";
         }
@@ -204,7 +203,7 @@ let selectDb = async function (tname, flt, params){
 }
 
 let insertDb = async function (tname, body){
-    const tbl = restinfo.tables.get(tname);
+    const tbl = global.tables.get(tname);
     const col = tbl.columns;
     let colstr = "";
     let valstr = "";
@@ -235,7 +234,7 @@ let insertDb = async function (tname, body){
 }
 
 let updateDb = async function (tname, body){
-    const tbl = restinfo.tables.get(tname);
+    const tbl = global.tables.get(tname);
     const col = tbl.columns;
     let valstr = "";
     let idstr = "";
@@ -280,7 +279,7 @@ let updateDb = async function (tname, body){
 }
 
 let deleteDb = async function (tname, pks){
-    const tbl = restinfo.tables.get(tname);
+    const tbl = global.tables.get(tname);
     const col = tbl.columns;
     let idstr = "";
     let pkstr = "";

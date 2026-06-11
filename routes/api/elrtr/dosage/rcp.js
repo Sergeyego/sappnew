@@ -1,4 +1,3 @@
-const restinfo = require('../../../../autorest/restinfo.js');
 //const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 //const locale = require('../../../../locale.js');
@@ -9,7 +8,7 @@ module.exports = function (app) {
         const tableName = "rcp_nam";
         try {
             let data = await autorest.getData(tableName, req);
-            const tbl = restinfo.tables.get(tableName);
+            const tbl = global.tables.get(tableName);
             const col = tbl.columns;
             for (i = 0; i < data.length; i++) {
                 col.forEach(function (cl) {

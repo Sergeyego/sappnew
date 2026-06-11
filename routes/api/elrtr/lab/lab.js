@@ -1,4 +1,3 @@
-const restinfo = require('../../../../autorest/restinfo.js');
 const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 const locale = require('../../../../locale.js');
@@ -97,7 +96,7 @@ module.exports = function (app) {
                     }
                     mapStat.set(state[i].id, col);
                 }
-                const tbl = restinfo.tables.get(tableName);
+                const tbl = global.tables.get(tableName);
                 const col = tbl.columns;
                 for (i = 0; i < data.length; i++) {
                     col.forEach(function (cl) {
@@ -123,7 +122,7 @@ module.exports = function (app) {
                 //console.log(id_part);
                 if (id_part > 0) {
                     const mapStat = await getChemTu(id_part);
-                    const tbl = restinfo.tables.get(tableName);
+                    const tbl = global.tables.get(tableName);
                     const col = tbl.columns;
                     for (i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {
@@ -154,7 +153,7 @@ module.exports = function (app) {
                 //console.log(id_part);
                 if (id_part > 0) {
                     const mapStat = await getMechTu(id_part);
-                    const tbl = restinfo.tables.get(tableName);
+                    const tbl = global.tables.get(tableName);
                     const col = tbl.columns;
                     for (i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {

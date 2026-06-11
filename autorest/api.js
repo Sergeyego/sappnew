@@ -1,4 +1,3 @@
-const restinfo = require('./restinfo.js');
 const locale = require('../locale.js');
 const autorest = require('./autorest.js');
 const db = require('../postgres.js');
@@ -18,8 +17,8 @@ module.exports = function (app) {
     });
 
     app.get("/autorest/tableinfo/:tablename", async (req, res) => {
-        if (restinfo.tables.has(req.params["tablename"])) {
-            res.json(restinfo.tables.get(req.params["tablename"]));
+        if (global.tables.has(req.params["tablename"])) {
+            res.json(global.tables.get(req.params["tablename"]));
         } else {
             res.status(404).type('text/plain');
             res.send("Не найдена таблица '" + req.params["tablename"] + "'");
@@ -27,8 +26,8 @@ module.exports = function (app) {
     });
 
     app.get("/autorest/relinfo/:name", async (req, res) => {
-        if (restinfo.rels.has(req.params["name"])) {
-            res.json(restinfo.rels.get(req.params["name"]));
+        if (global.rels.has(req.params["name"])) {
+            res.json(global.rels.get(req.params["name"]));
         } else {
             res.status(404).type('text/plain');
             res.send("Не найдено отношение '" + req.params["name"] + "'");
@@ -36,7 +35,7 @@ module.exports = function (app) {
     });
 
     app.use("/autorest/tables/:tablename", bodyParser.json(), async (req, res) => {
-        if (restinfo.tables.has(req.params["tablename"])) {
+        if (global.tables.has(req.params["tablename"])) {
             autorest.getData(req.params["tablename"], req)
                 .then((data) => {
                     res.json(data)
@@ -53,8 +52,8 @@ module.exports = function (app) {
     });
 
     app.get("/autorest/relations/:name", async (req, res) => {
-        if (restinfo.rels.has(req.params["name"])) {
-            const rel = restinfo.rels.get(req.params["name"]);
+        if (global.rels.has(req.params["name"])) {
+            const rel = global.rels.get(req.params["name"]);
             let like = req.query.like;
             const key = req.query.key;
             let limit = "";

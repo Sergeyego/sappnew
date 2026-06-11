@@ -82,6 +82,7 @@ module.exports = function (app) {
                     if (rowNumber > 1) { //Если это не шапка
                         const id_type = req.body.columns[j].id_type;
                         const dec = req.body.columns[j].dec;
+                        row.getCell(key).font = { name: 'Arial', size: 10, bold: false };
                         row.getCell(key).numFmt = getNumFmt(id_type, dec);
                         if (id_type === 6 && row.getCell(key).value === 0.0) {
                             row.getCell(key).value = null;
