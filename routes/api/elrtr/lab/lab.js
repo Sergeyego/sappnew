@@ -8,7 +8,7 @@ let getChemTu = async function(id_part){
         "c.id_el = (select p.id_el from parti as p where p.id = $1 ) " +
         "and c.id_var = (select p.id_var from parti as p where p.id = $1 )";
     const state = await db.any(query, [id_part]);
-    mapStat = new Map();
+    const mapStat = new Map();
     for (i = 0; i < state.length; i++) {
         mapStat.set(state[i].id_chem, { min: state[i].min, max: state[i].max });
     }
@@ -20,7 +20,7 @@ let getMechTu = async function(id_part){
             "m.id_el = (select p.id_el from parti as p where p.id = $1 )"+
             "and m.id_var = (select p.id_var from parti as p where p.id = $1 )";
     const state = await db.any(query, [id_part]);
-    mapStat = new Map();
+    const mapStat = new Map();
     for (i = 0; i < state.length; i++) {
         mapStat.set(state[i].id_mech, { min: state[i].min, max: state[i].max });
     }
@@ -83,7 +83,7 @@ module.exports = function (app) {
                     query += " where parti.id = -1";
                 }
                 const state = await db.any(query);
-                mapStat = new Map();
+                const mapStat = new Map();
                 for (i = 0; i < state.length; i++) {
                     let col = "#FFFFFF";
                     const r = state[i].r;

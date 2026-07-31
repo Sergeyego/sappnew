@@ -18,7 +18,7 @@ module.exports = function (app) {
 
     app.get("/autorest/tableinfo/:tablename", async (req, res) => {
         try {
-            data = await autorest.getTblInfo(req.params["tablename"]);
+            const data = await autorest.getTblInfo(req.params["tablename"]);
             res.json(data);
         } catch (error) {
             res.status(404).type('text/plain');
@@ -28,7 +28,7 @@ module.exports = function (app) {
 
     app.get("/autorest/relinfo/:name", async (req, res) => {
         try {
-            data = await autorest.getRelInfo(req.params["name"]);
+            const data = await autorest.getRelInfo(req.params["name"]);
             res.json(data);
         } catch (error) {
             res.status(404).type('text/plain');

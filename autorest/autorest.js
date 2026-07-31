@@ -78,13 +78,13 @@ let updData = async function () {
 }
 
 let getTblInfo = async function (nam) {
-    data = await db.one("select * from rest_tables_view where nam = $1", [nam]);
+    const data = await db.one("select * from rest_tables_view where nam = $1", [nam]);
     //console.log(data);
     return data;
 }
 
 let getRelInfo = async function (nam) {
-    data = await db.one("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
+    const data = await db.one("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
         "left join rest_tables rt on rt.id = rr.id_tbl where rr.nam = $1", [nam]);
     //console.log(data);
     return data;
