@@ -8,7 +8,7 @@ module.exports = function (app) {
         const tableName = "rcp_nam";
         try {
             let data = await autorest.getData(tableName, req);
-            const tbl = global.tables.get(tableName);
+            const tbl = await autorest.getTblInfo(tableName);
             const col = tbl.columns;
             for (i = 0; i < data.length; i++) {
                 col.forEach(function (cl) {

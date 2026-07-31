@@ -1,8 +1,5 @@
 const db = require('../postgres.js');
 const locale = require('../locale.js');
-const sql = require('../sql.js');
-
-const sqlTableInfo = sql('autorest/tableinfo.sql');
 
 let mapType = new Map([
     [16, "bool"],
@@ -71,23 +68,7 @@ let updData = async function () {
     let err = "";
     let ok = true;
     try {
-        const rels = await db.any("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
-            "left join rest_tables rt on rt.id = rr.id_tbl");
-        const tables = await db.any("select nam, tablename, sort from rest_tables");
-
-        const mapRel = new Map();
-        for (let i = 0; i < rels.length; i++) {
-            mapRel.set(rels[i].nam, rels[i]);
-        }
-
-        const mapTbl = new Map();
-        for (let i = 0; i < tables.length; i++) {
-            const cols = await db.any(sqlTableInfo, [tables[i].tablename]);
-            //console.log(cols);
-            mapTbl.set(tables[i].nam, { tablename: tables[i].tablename, sort: tables[i].sort, columns: cols });
-        }
-        global.tables = mapTbl;
-        global.rels = mapRel;
+        await db.any("SELECT refresh_rest_tables_view()");
     } catch (error) {
         console.log(error.message);
         err = error.message;
@@ -96,89 +77,100 @@ let updData = async function () {
     return { error: err, ok: ok };
 }
 
-let getDisplay = function (val, type, dec, hide_zero=false) {
-    if (val===null) return "";
+let getTblInfo = async function (nam) {
+    data = await db.one("select * from rest_tables_view where nam = $1", [nam]);
+    //console.log(data);
+    return data;
+}
+
+let getRelInfo = async function (nam) {
+    data = await db.one("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
+        "left join rest_tables rt on rt.id = rr.id_tbl where rr.nam = $1", [nam]);
+    //console.log(data);
+    return data;
+}
+
+let getDisplay = function (val, type, dec, hide_zero = false, checkable = false) {
+    if (val === null) return "";
     let ret;
     switch (type) {
         case "bool":
-            ret=val ? "Да" : "Нет";
+            ret = val ? "Да" : "Нет";
             break;
         case "text":
         case "varchar":
-            ret=locale.isEmptyStr(val) ? '' : val;
+            ret = locale.isEmptyStr(val) ? '' : val;
             break;
         case "int2":
         case "int4":
         case "int8":
-            ret=(hide_zero===true && val===0)? "" : locale.insNumber(val,0);
+            ret = ((hide_zero === true && val === 0) || checkable) ? "" : locale.insNumber(val, 0);
             break;
         case "float4":
         case "float8":
         case "numeric":
-            ret=(hide_zero===true && val===0)? "" : locale.insNumber(val,dec);
+            ret = (hide_zero === true && val === 0) ? "" : locale.insNumber(val, dec);
             break;
         case "date":
-            ret=locale.insDate(val);
+            ret = locale.insDate(val);
             break;
         case "timestamp":
         case "timestamptz":
-            ret=locale.insDateTime(val);
+            ret = locale.insDateTime(val);
             break;
         /*case "time":
         case "timetz":
             ret=locale.insTime(val);
             break;*/
         default:
-            ret=val;
+            ret = val;
     }
     return ret;
 }
 
-let getFltStr = function (tname, obj){
-    const tbl = global.tables.get(tname);
+let getFltStr = function (tbl, obj) {
     let flt = "";
     for (const key in obj) {
-        if (flt!=""){
-            flt+=" and ";
+        if (flt != "") {
+            flt += " and ";
         }
-        flt+=tbl.tablename+"."+key+" = "+"${"+key+"}";
+        flt += tbl.tablename + "." + key + " = " + "${" + key + "}";
     }
     return flt;
-} 
+}
 
-let selectDb = async function (tname, flt, params){
-    const tbl = global.tables.get(tname);
+let selectDb = async function (tbl, flt, params) {
     const col = tbl.columns;
     //console.log(col);
     let colstr = "";
     let joinstr = "";
     let coljoin = "";
-    col.forEach(function (cl) {
-        if (colstr!=""){
-            colstr+=", ";
+    for (const cl of col) {
+        if (colstr != "") {
+            colstr += ", ";
         }
-        colstr+=tbl.tablename+"."+cl.col+" AS "+cl.nam;
-        if (!locale.isEmptyStr(cl.relnam)){
-            if (coljoin!=""){
-                coljoin+=", ";
+        colstr += tbl.tablename + "." + cl.col + " AS " + cl.nam;
+        if (!locale.isEmptyStr(cl.relnam)) {
+            if (coljoin != "") {
+                coljoin += ", ";
             }
-            const rel=global.rels.get(cl.relnam);
-            coljoin+=cl.relnam+"."+rel.col_val+" AS jcol_"+cl.nam;
-            joinstr+="LEFT JOIN "+rel.tablename+" AS "+cl.relnam+" ON "+cl.relnam+"."+rel.col_id+" = "+tbl.tablename+"."+cl.col+" ";
+            const rel = await getRelInfo(cl.relnam);
+            coljoin += cl.relnam + "." + rel.col_val + " AS jcol_" + cl.nam;
+            joinstr += "LEFT JOIN " + rel.tablename + " AS " + cl.relnam + " ON " + cl.relnam + "." + rel.col_id + " = " + tbl.tablename + "." + cl.col + " ";
         }
-    });
+    };
 
-    let query = "SELECT "+colstr;
-    if (!locale.isEmptyStr(coljoin)){
-        query+=", "+coljoin;
+    let query = "SELECT " + colstr;
+    if (!locale.isEmptyStr(coljoin)) {
+        query += ", " + coljoin;
     }
-    query+=" FROM "+tbl.tablename+" "+joinstr;
-    if (!locale.isEmptyStr(flt)){
-        query+="WHERE "+flt;
+    query += " FROM " + tbl.tablename + " " + joinstr;
+    if (!locale.isEmptyStr(flt)) {
+        query += "WHERE " + flt;
     }
 
-    if (!locale.isEmptyStr(tbl.sort)){
-        query+=" ORDER BY "+tbl.sort;
+    if (!locale.isEmptyStr(tbl.sort)) {
+        query += " ORDER BY " + tbl.sort;
     }
 
     //console.log(query);
@@ -192,7 +184,7 @@ let selectDb = async function (tname, flt, params){
         col.forEach(function (cl) {
             let ob = {};
             ob["edit_role"] = data[i][cl.nam];
-            ob["display_role"] = (!locale.isEmptyStr(cl.relnam)) ? locale.insText(data[i]["jcol_"+cl.nam]) : getDisplay(data[i][cl.nam],cl.udt_name,cl.dec);
+            ob["display_role"] = (!locale.isEmptyStr(cl.relnam)) ? locale.insText(data[i]["jcol_" + cl.nam]) : getDisplay(data[i][cl.nam], cl.udt_name, cl.dec, false, cl.checkable);
             ob["background_role"] = "#FFFFFF";
             ob["tooltip_role"] = "";
             tbl_col[cl.nam] = ob;
@@ -202,39 +194,38 @@ let selectDb = async function (tname, flt, params){
     return obj;
 }
 
-let insertDb = async function (tname, body){
-    const tbl = global.tables.get(tname);
+let insertDb = async function (tbl, body) {
     const col = tbl.columns;
     let colstr = "";
     let valstr = "";
     let idstr = "";
 
     col.forEach(function (cl) {
-        if (body[cl.nam]!==null && body[cl.nam]!==undefined){
+        if (body[cl.nam] !== null && body[cl.nam] !== undefined) {
             //console.log(cl.nam, body[cl.nam]);
-            if (colstr!=""){
-                colstr+=", ";
-                valstr+=", ";
+            if (colstr != "") {
+                colstr += ", ";
+                valstr += ", ";
             }
-            colstr+=cl.col;
-            valstr+="${"+cl.nam+"}";
+            colstr += cl.col;
+            valstr += "${" + cl.nam + "}";
         }
-        if (cl.is_pk){
-            if (idstr!=""){
-                idstr+=", ";
+        if (cl.is_pk) {
+            if (idstr != "") {
+                idstr += ", ";
             }
-            idstr+=cl.col;
+            idstr += cl.col;
         }
     });
 
-    let query = "INSERT INTO "+tbl.tablename+" ("+colstr+") VALUES ("+valstr+") RETURNING "+idstr;
+    let query = "INSERT INTO " + tbl.tablename + " (" + colstr + ") VALUES (" + valstr + ") RETURNING " + idstr;
     //console.log(query);
     const pks = await db.one(query, body);
     return pks;
 }
 
-let updateDb = async function (tname, body){
-    const tbl = global.tables.get(tname);
+let updateDb = async function (tbl, body) {
+
     const col = tbl.columns;
     let valstr = "";
     let idstr = "";
@@ -242,33 +233,33 @@ let updateDb = async function (tname, body){
     let parobj = {};
     let pkobj = {};
 
-    const new_row=body.new_row;
-    const old_row=body.old_row;
+    const new_row = body.new_row;
+    const old_row = body.old_row;
     col.forEach(function (cl) {
-        if (new_row[cl.nam]!==old_row[cl.nam]){
+        if (new_row[cl.nam] !== old_row[cl.nam]) {
             //console.log(cl.nam, new_row[cl.nam]);
-            if (valstr!=""){
-                valstr+=", ";
+            if (valstr != "") {
+                valstr += ", ";
             }
-            valstr+=cl.col+" = ${"+cl.nam+"}";
+            valstr += cl.col + " = ${" + cl.nam + "}";
             parobj[cl.nam] = new_row[cl.nam];
         }
-        if (cl.is_pk){
-            if (idstr!=""){
-                idstr+=", ";
-                fltstr+=" and ";
+        if (cl.is_pk) {
+            if (idstr != "") {
+                idstr += ", ";
+                fltstr += " and ";
             }
-            idstr+=cl.col;
-            fltstr+=cl.col+" = ${pk_"+cl.col+"}";
-            parobj["pk_"+cl.col]=old_row[cl.nam];
-            pkobj[cl.col]=old_row[cl.nam];
+            idstr += cl.col;
+            fltstr += cl.col + " = ${pk_" + cl.col + "}";
+            parobj["pk_" + cl.col] = old_row[cl.nam];
+            pkobj[cl.col] = old_row[cl.nam];
         }
     });
 
     let pks = {};
 
-    if (valstr.length){
-        let query = "UPDATE "+tbl.tablename+" SET "+valstr+" WHERE "+fltstr+" RETURNING "+idstr;
+    if (valstr.length) {
+        let query = "UPDATE " + tbl.tablename + " SET " + valstr + " WHERE " + fltstr + " RETURNING " + idstr;
         //console.log(query);
         //console.log(parobj);
         pks = await db.one(query, parobj);
@@ -278,24 +269,23 @@ let updateDb = async function (tname, body){
     return pks;
 }
 
-let deleteDb = async function (tname, pks){
-    const tbl = global.tables.get(tname);
+let deleteDb = async function (tbl, pks) {
     const col = tbl.columns;
     let idstr = "";
     let pkstr = "";
 
     col.forEach(function (cl) {
-        if (cl.is_pk){
-            if (idstr!=""){
-                idstr+=" and ";
-                pkstr+=", ";
+        if (cl.is_pk) {
+            if (idstr != "") {
+                idstr += " and ";
+                pkstr += ", ";
             }
-            idstr+=cl.col+" = ${"+cl.nam+"}";
-            pkstr+=cl.col;
+            idstr += cl.col + " = ${" + cl.nam + "}";
+            pkstr += cl.col;
         }
     });
 
-    let query = "DELETE FROM "+tbl.tablename+" WHERE "+idstr+" RETURNING "+pkstr;
+    let query = "DELETE FROM " + tbl.tablename + " WHERE " + idstr + " RETURNING " + pkstr;
     //console.log(query);
     //console.log(pks);
     const ret = await db.one(query, pks);
@@ -305,68 +295,69 @@ let deleteDb = async function (tname, pks){
 let getData = async function (tname, req) {
     //console.log(req.method, tname);
     let data = {};
-    if (req.method=="GET"){
-        data = await selectDb(tname, req.query.filter);
-    } else if (req.method=="POST") {
-        const pks = await insertDb(tname, req.body);
-        data = await selectDb(tname, getFltStr(tname, pks), pks);
+    const tbl = await getTblInfo(tname);
+    if (req.method == "GET") {
+        data = await selectDb(tbl, req.query.filter);
+    } else if (req.method == "POST") {
+        const pks = await insertDb(tbl, req.body);
+        data = await selectDb(tbl, getFltStr(tbl, pks), pks);
         //console.log(data);
-    } else if (req.method=="PUT") {
-        const pks = await updateDb(tname, req.body);
-        data = await selectDb(tname, getFltStr(tname, pks), pks);
+    } else if (req.method == "PUT") {
+        const pks = await updateDb(tbl, req.body);
+        data = await selectDb(tbl, getFltStr(tbl, pks), pks);
         //console.log(data);
-    } else if (req.method=="DELETE") {
-        await deleteDb(tname, req.query);
+    } else if (req.method == "DELETE") {
+        await deleteDb(tbl, req.query);
     }
     return data;
 }
 
 let getRoData = async function (title, query, param, headers, dec, decConf) {
-    const data = await db.result(query,param);
+    const data = await db.result(query, param);
 
     let res = {};
-    res['title']=title;
+    res['title'] = title;
 
     let arr_fields = new Array;
     let decimal = 0;
-    for (let i=0; i<data.fields.length; i++){
-        let width=0;
-        const colNam=data.fields[i].name;
-        const udtName=mapType.get(data.fields[i].dataTypeID);
-        if (decConf!==undefined && Object.hasOwn(decConf,colNam) && Object.hasOwn(decConf[colNam],"dec")){
-            decimal=decConf[colNam].dec;
-        } else if (udtName==="float4" || udtName==="float8" || udtName=="numeric"){
-            decimal=(dec!=undefined && dec!=null)? dec : 0;
+    for (let i = 0; i < data.fields.length; i++) {
+        let width = 0;
+        const colNam = data.fields[i].name;
+        const udtName = mapType.get(data.fields[i].dataTypeID);
+        if (decConf !== undefined && Object.hasOwn(decConf, colNam) && Object.hasOwn(decConf[colNam], "dec")) {
+            decimal = decConf[colNam].dec;
+        } else if (udtName === "float4" || udtName === "float8" || udtName == "numeric") {
+            decimal = (dec != undefined && dec != null) ? dec : 0;
         } else {
-            decimal=0;
+            decimal = 0;
         }
-        if (decConf!==undefined && Object.hasOwn(decConf,colNam) && Object.hasOwn(decConf[colNam],"width")){
-            width=decConf[colNam].width;
+        if (decConf !== undefined && Object.hasOwn(decConf, colNam) && Object.hasOwn(decConf[colNam], "width")) {
+            width = decConf[colNam].width;
         }
         let ob = {};
         ob["nam"] = colNam;
         ob["udt_name"] = udtName;
-        ob["snam"] = (headers!==undefined && headers.length) ? headers[i] : colNam;
+        ob["snam"] = (headers !== undefined && headers.length) ? headers[i] : colNam;
         ob["dec"] = decimal;
         ob["width"] = width;
         arr_fields.push(ob);
     }
-    res['fields']=arr_fields;
-    
+    res['fields'] = arr_fields;
+
     let arr_row = new Array;
     for (let i = 0; i < data.rows.length; i++) {
         let tbl_col = {};
-        for (j=0; j<arr_fields.length; j++){
+        for (j = 0; j < arr_fields.length; j++) {
             let ob = {};
             ob["edit_role"] = data.rows[i][arr_fields[j].nam];
-            ob["display_role"] = getDisplay(data.rows[i][arr_fields[j].nam],arr_fields[j].udt_name,arr_fields[j].dec,true);
+            ob["display_role"] = getDisplay(data.rows[i][arr_fields[j].nam], arr_fields[j].udt_name, arr_fields[j].dec, true);
             ob["background_role"] = "#FFFFFF";
             ob["tooltip_role"] = "";
             tbl_col[arr_fields[j].nam] = ob;
         }
         arr_row.push(tbl_col);
     }
-    res['rows']=arr_row;
+    res['rows'] = arr_row;
 
     return res;
 }
@@ -375,5 +366,7 @@ module.exports = {
     getRoData,
     getData,
     updData,
-    getDisplay
+    getDisplay,
+    getTblInfo,
+    getRelInfo
 };

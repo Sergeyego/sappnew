@@ -6,7 +6,7 @@ const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
-const autorest = require('./autorest/autorest.js');
+//const autorest = require('./autorest/autorest.js');
 
 const app = express();
 const port = 9000;
@@ -17,19 +17,6 @@ const options = {
 };
 
 const hashFunc = crypto.createHash('sha256').update(options.key).digest('hex');
-
-global.tables = new Map();
-global.rels = new Map();
-
-autorest.updData()
-    .then((inf) => {
-        if (inf.ok){
-            console.log("Данные успешно получены.");
-        }
-    })
-    .catch((error) => {
-        console.log("Не удалось обновить данные. " + error.message);
-    })
 
 app.set('view engine', 'hbs');
 app.set('views', './views');

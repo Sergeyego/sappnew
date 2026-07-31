@@ -17,43 +17,40 @@ module.exports = function (app) {
     });
 
     app.get("/autorest/tableinfo/:tablename", async (req, res) => {
-        if (global.tables.has(req.params["tablename"])) {
-            res.json(global.tables.get(req.params["tablename"]));
-        } else {
+        try {
+            data = await autorest.getTblInfo(req.params["tablename"]);
+            res.json(data);
+        } catch (error) {
             res.status(404).type('text/plain');
-            res.send("Не найдена таблица '" + req.params["tablename"] + "'");
+            res.send(error.message);
         }
     });
 
     app.get("/autorest/relinfo/:name", async (req, res) => {
-        if (global.rels.has(req.params["name"])) {
-            res.json(global.rels.get(req.params["name"]));
-        } else {
+        try {
+            data = await autorest.getRelInfo(req.params["name"]);
+            res.json(data);
+        } catch (error) {
             res.status(404).type('text/plain');
-            res.send("Не найдено отношение '" + req.params["name"] + "'");
+            res.send(error.message);
         }
     });
 
     app.use("/autorest/tables/:tablename", bodyParser.json(), async (req, res) => {
-        if (global.tables.has(req.params["tablename"])) {
-            autorest.getData(req.params["tablename"], req)
-                .then((data) => {
-                    res.json(data)
-                })
-                .catch((error) => {
-                    //console.log('ERROR:', error);
-                    res.status(500).type('text/plain');
-                    res.send(error.message);
-                })
-        } else {
-            res.status(404).type('text/plain');
-            res.send("Не найдена таблица '" + req.params["tablename"] + "'");
-        }
+        autorest.getData(req.params["tablename"], req)
+            .then((data) => {
+                res.json(data)
+            })
+            .catch((error) => {
+                //console.log('ERROR:', error);
+                res.status(500).type('text/plain');
+                res.send(error.message);
+            })
     });
 
     app.get("/autorest/relations/:name", async (req, res) => {
-        if (global.rels.has(req.params["name"])) {
-            const rel = global.rels.get(req.params["name"]);
+        try {
+            const rel = await autorest.getRelInfo(req.params["name"]);
             let like = req.query.like;
             const key = req.query.key;
             let limit = "";
@@ -102,9 +99,9 @@ module.exports = function (app) {
                     res.status(500).type('text/plain');
                     res.send(error.message);
                 })
-        } else {
+        } catch (error) {
             res.status(404).type('text/plain');
-            res.send("Не найдено отношение '" + req.params["name"] + "'");
+            res.send(error.message);
         }
     });
 }

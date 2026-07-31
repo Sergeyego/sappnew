@@ -96,7 +96,7 @@ module.exports = function (app) {
                     }
                     mapStat.set(state[i].id, col);
                 }
-                const tbl = global.tables.get(tableName);
+                const tbl = await autorest.getTblInfo(tableName);
                 const col = tbl.columns;
                 for (i = 0; i < data.length; i++) {
                     col.forEach(function (cl) {
@@ -122,7 +122,7 @@ module.exports = function (app) {
                 //console.log(id_part);
                 if (id_part > 0) {
                     const mapStat = await getChemTu(id_part);
-                    const tbl = global.tables.get(tableName);
+                    const tbl = await autorest.getTblInfo(tableName);
                     const col = tbl.columns;
                     for (i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {
@@ -153,7 +153,7 @@ module.exports = function (app) {
                 //console.log(id_part);
                 if (id_part > 0) {
                     const mapStat = await getMechTu(id_part);
-                    const tbl = global.tables.get(tableName);
+                    const tbl = await autorest.getTblInfo(tableName);
                     const col = tbl.columns;
                     for (i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {
