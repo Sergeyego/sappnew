@@ -1,4 +1,4 @@
-//const db = require('../../../../postgres.js');
+const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 //const locale = require('../../../../locale.js');
 var bodyParser = require('body-parser');
@@ -26,8 +26,18 @@ module.exports = function (app) {
             }
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.post("/elrtr/dosage/paste/:id_src_rcp/:id_rcp", async (req, res) => {
+        try {
+            await db.any("delete from rcp_cont where id_rcp = $1",[Number(req.params["id_rcp"])]);
+            const data = await db.any("insert into rcp_cont (id_rcp, id_matr, kvo, hidden) "+
+                "(select $1, id_matr, kvo, hidden from rcp_cont where id_rcp = $2 )",[Number(req.params["id_rcp"]),Number(req.params["id_src_rcp"])]);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }
