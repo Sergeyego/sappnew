@@ -11,8 +11,7 @@ module.exports = function (app) {
             res.status(200).type('text/plain');
             res.send("Обновлено успешно");
         } else {
-            res.status(404).type('text/plain');
-            res.send(upd.error);
+            res.status(404).type('text/plain').send(upd.error);
         }
     });
 
@@ -21,8 +20,7 @@ module.exports = function (app) {
             const data = await autorest.getTblInfo(req.params["tablename"]);
             res.json(data);
         } catch (error) {
-            res.status(404).type('text/plain');
-            res.send(error.message);
+            res.status(404).type('text/plain').send(error.message);
         }
     });
 
@@ -31,21 +29,17 @@ module.exports = function (app) {
             const data = await autorest.getRelInfo(req.params["name"]);
             res.json(data);
         } catch (error) {
-            res.status(404).type('text/plain');
-            res.send(error.message);
+            res.status(404).type('text/plain').send(error.message);
         }
     });
 
     app.use("/autorest/tables/:tablename", bodyParser.json(), async (req, res) => {
-        autorest.getData(req.params["tablename"], req)
-            .then((data) => {
-                res.json(data)
-            })
-            .catch((error) => {
-                //console.log('ERROR:', error);
-                res.status(500).type('text/plain');
-                res.send(error.message);
-            })
+        try {
+            const data = await autorest.getData(req.params["tablename"], req);
+            res.json(data);
+        } catch (error) {
+            res.status(404).type('text/plain').send(error.message);
+        }
     });
 
     app.get("/autorest/relations/:name", async (req, res) => {
@@ -90,18 +84,10 @@ module.exports = function (app) {
                 query += " LIMIT " + limit;
             }
             //console.log(query);
-            db.any(query,{key : key})
-                .then((data) => {
-                    res.json(data)
-                })
-                .catch((error) => {
-                    console.log('ERROR:', error);
-                    res.status(500).type('text/plain');
-                    res.send(error.message);
-                })
+            const data = await db.any(query,{key : key});
+            res.json(data);
         } catch (error) {
-            res.status(404).type('text/plain');
-            res.send(error.message);
+            res.status(404).type('text/plain').send(error.message);
         }
     });
 }

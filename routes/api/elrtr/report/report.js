@@ -26,10 +26,10 @@ module.exports = function (app) {
             for (let n = 0; n < col_sum.length; n++) {
                 sums[col_sum[n]] = 0;
             }
-            for (i = 0; i < data.rows.length; i++) {
+            for (let i = 0; i < data.rows.length; i++) {
                 const beg = data.rows[i]["ostbeg"].edit_role;
                 const end = data.rows[i]["ostend"].edit_role;
-                for (j = 0; j < data.fields.length; j++) {
+                for (let j = 0; j < data.fields.length; j++) {
                     if (beg < 0 || end < 0) {
                         data.rows[i][data.fields[j].nam].background_role = "#FFAAAA";
                     }
@@ -40,7 +40,7 @@ module.exports = function (app) {
             }
             sums["marka"] = "ИТОГО";
             let tbl_col = {};
-            for (j = 0; j < data.fields.length; j++) {
+            for (let j = 0; j < data.fields.length; j++) {
                 let ob = {};
                 const val = (sums[data.fields[j].nam] == undefined) ? null : sums[data.fields[j].nam];
                 ob["edit_role"] = val;

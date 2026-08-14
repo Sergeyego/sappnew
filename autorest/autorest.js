@@ -315,21 +315,22 @@ let getData = async function (tname, req) {
 let getRoData = async function (title, query, param, headers, dec, decConf) {
     const data = await db.result(query, param);
 
+    const hasHeaders = Array.isArray(headers) && headers.length > 0;
+
     let res = {};
     res['title'] = title;
 
     let arr_fields = new Array;
-    let decimal = 0;
+    
     for (let i = 0; i < data.fields.length; i++) {
         let width = 0;
+        let decimal = 0;
         const colNam = data.fields[i].name;
         const udtName = mapType.get(data.fields[i].dataTypeID);
         if (decConf !== undefined && Object.hasOwn(decConf, colNam) && Object.hasOwn(decConf[colNam], "dec")) {
             decimal = decConf[colNam].dec;
-        } else if (udtName === "float4" || udtName === "float8" || udtName == "numeric") {
+        } else if (udtName === "float4" || udtName === "float8" || udtName === "numeric") {
             decimal = (dec != undefined && dec != null) ? dec : 0;
-        } else {
-            decimal = 0;
         }
         if (decConf !== undefined && Object.hasOwn(decConf, colNam) && Object.hasOwn(decConf[colNam], "width")) {
             width = decConf[colNam].width;
@@ -337,7 +338,7 @@ let getRoData = async function (title, query, param, headers, dec, decConf) {
         let ob = {};
         ob["nam"] = colNam;
         ob["udt_name"] = udtName;
-        ob["snam"] = (headers !== undefined && headers.length) ? headers[i] : colNam;
+        ob["snam"] = (hasHeaders && headers[i] !== undefined) ? headers[i] : colNam;
         ob["dec"] = decimal;
         ob["width"] = width;
         arr_fields.push(ob);
@@ -347,7 +348,7 @@ let getRoData = async function (title, query, param, headers, dec, decConf) {
     let arr_row = new Array;
     for (let i = 0; i < data.rows.length; i++) {
         let tbl_col = {};
-        for (j = 0; j < arr_fields.length; j++) {
+        for (let j = 0; j < arr_fields.length; j++) {
             let ob = {};
             ob["edit_role"] = data.rows[i][arr_fields[j].nam];
             ob["display_role"] = getDisplay(data.rows[i][arr_fields[j].nam], arr_fields[j].udt_name, arr_fields[j].dec, true);
