@@ -16,8 +16,7 @@ module.exports = function (app) {
             let data = await autorest.getRoData("Мастеры",sqlMasters,[req.params["dat"]]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -26,8 +25,7 @@ module.exports = function (app) {
             let data = await db.any(sqlLoad,[Number(req.params["id_nakl"]),req.params["dat"],req.params["id_master"]]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -36,8 +34,7 @@ module.exports = function (app) {
             let data = await autorest.getRoData("Даты","select distinct dat as dat from prod_ost order by dat desc");
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -53,8 +50,7 @@ module.exports = function (app) {
             const data = await db.any("insert into prod_ost (dat, id_part, kvo) (select $1, p.id_part, p.ostend from calc_prod($1) as p where p.ostend<>0)",[date]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

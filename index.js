@@ -6,7 +6,6 @@ const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
-//const autorest = require('./autorest/autorest.js');
 
 const app = express();
 const port = 9000;
@@ -22,8 +21,7 @@ app.set('view engine', 'hbs');
 app.set('views', './views');
 
 app.get('/', (req, res) => {
-    res.status(200).type('text/plain');
-    res.send('Welcome to the server');
+    res.status(200).type('text/plain').send('Welcome to the server');
 })
 
 app.post('/login', bodyParser.json(), async (req, res) => {
@@ -33,8 +31,7 @@ app.post('/login', bodyParser.json(), async (req, res) => {
             if (pass_ok.ok) {
                 jwt.sign({ username }, hashFunc, { expiresIn: "12 h" }, function (err, token) {
                     if (err) {
-                        res.status(401).type('text/plain');
-                        res.send(err.message);
+                        res.status(401).type('text/plain').send(err.message);
                     } else {
                         const decoded = jwt.decode(token, { complete: true });
                         //console.log(decoded.payload);
@@ -42,13 +39,11 @@ app.post('/login', bodyParser.json(), async (req, res) => {
                     }
                 });
             } else {
-                res.status(401).type('text/plain');
-                res.send('Неверный пароль');
+                res.status(401).type('text/plain').send('Неверный пароль');
             }
         })
         .catch((error) => {
-            res.status(401).type('text/plain');
-            res.send(`Пользователь ${username} не найден. ` + error.message);
+            res.status(401).type('text/plain').send(`Пользователь ${username} не найден. ` + error.message);
         })
 });
 
@@ -74,8 +69,7 @@ router.get('/groups', async (req, res) => {
             "where ru.username = $1", [req.user.username]);
         res.json(groups);
     } catch (error) {
-        res.status(500).type('text/plain');
-        res.send(error.message);
+        res.status(500).type('text/plain').send(error.message);
     }
 });
 
@@ -85,8 +79,7 @@ router.put('/users', bodyParser.json(), async (req, res) => {
         const data = await db.any("update rest_users set hashpass = crypt($1, gen_salt('bf')) where username = $2", [password, username]);
         res.json(data);
     } catch (error) {
-        res.status(500).type('text/plain');
-        res.send(error.message);
+        res.status(500).type('text/plain').send(error.message);
     }
 });
 
@@ -125,8 +118,7 @@ router.get('/other', (req, res) => {
 app.use("/api", router);
 
 app.use((req, res, next) => {
-    res.status(404).type('text/plain');
-    res.send('Not found');
+    res.status(404).type('text/plain').send('Not found');
 })
 
 /*app.listen(port, () => {

@@ -6,8 +6,7 @@ module.exports = function (app) {
             const data = await db.any("select rn.id_el from rcp_nam rn where rn.id = $1",[Number(req.params["id_rcp"])]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -16,8 +15,7 @@ module.exports = function (app) {
             const data = await db.any("select e.id_gost as id_pr from elrtr e where e.id = $1",[Number(req.params["id_el"])]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -29,8 +27,7 @@ module.exports = function (app) {
                 "group by p.id_pack, p.id_long, p.id_var order by stat desc", [Number(req.params["id_el"]),Number(req.params["diam"])]);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

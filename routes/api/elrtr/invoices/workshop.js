@@ -1,60 +1,94 @@
+const db = require('../../../../postgres.js');
+const doc = require('../../../../invoice.js');
+
 module.exports = function (app) {
-    const db = require('../../../../postgres.js');
-    const doc = require('../../../../invoice.js');
     app.get("/elrtr/invoices/workshop/:invoiceId", async (req, res) => {
-        db.one("select n.num as num, n.dat as dat, t.nam as tnam, d.nam as dnam, ef.nam as efnam, et.nam as etnam, n.tip as idtype from parti_nakl as n "+
-                "inner join parti_nakl_tip as t on t.id=n.tip "+
-                "inner join nakl_doc as d on t.id_doc=d.id "+
-                "inner join nakl_emp as ef on t.id_from=ef.id "+
-                "inner join nakl_emp as et on t.id_to=et.id "+
-                "where n.id = $1", Number(req.params["invoiceId"]))
-            .then((dataTitle) => {
-                //console.log('DATA:', dataTitle);
-                //console.log('IDTYPE',dataTitle.idtype);
-                let query = "";
-                if (dataTitle.idtype==1){
-                    query = "select e.marka||' '||'ф'||p.diam|| "+
-                    "CASE WHEN p.id_var<>1 THEN ' /'||ev.nam ||'/' ELSE '' END "+
-                    "||' ('||ep.pack_ed||')' as nam, p.n_s as npart, w.kvo as kvo from parti_pack as w "+
-                    "inner join parti as p on p.id=w.id_part "+
-                    "inner join elrtr as e on e.id=p.id_el "+
-                    "inner join el_pack as ep on ep.id=p.id_pack "+
-                    "inner join elrtr_vars ev on ev.id = p.id_var "+
-                    "where w.id_nakl = $1 order by w.id";
-                } else if (dataTitle.idtype==2){
-                    query = "select e.marka||' '||'ф'||p.diam || "+
-                    "CASE WHEN p.id_var<>1 THEN ' /'||ev.nam ||'/' ELSE '' END ||' ('||ep.pack_ed||')' as nam, "+
-                    "p.n_s as npart, w.kvo as kvo from parti_break as w "+
-                    "inner join parti as p on p.id=w.id_part "+
-                    "inner join elrtr as e on e.id=p.id_el "+
-                    "inner join el_pack as ep on ep.id=p.id_pack "+
-                    "inner join elrtr_vars ev on ev.id = p.id_var "+
-                    "where w.id_nakl = $1 order by w.id";
-                }
-                db.any(query, Number(req.params["invoiceId"]))
-                    .then((dataItems) =>{
-                        //console.log('DATA:', dataItems);
-                        doc.createDoc(dataTitle,dataItems)
-                        .then((b64string)=>{
-                            res.setHeader('Content-Disposition', 'attachment; filename=invioce.docx');
-                            res.send(Buffer.from(b64string, 'base64'));
-                        })
-                        .catch((error) => {
-                            console.log('ERROR:', error);
-                            res.status(500).type('text/plain');
-                            res.send(error.message);
-                        })
-                    })
-                    .catch((error) => {
-                        console.log('ERROR:', error);
-                        res.status(500).type('text/plain');
-                        res.send(error.message);
-                    })
-            })
-            .catch((error) => {
-                console.log('ERROR:', error);
-                res.status(500).type('text/plain');
-                res.send(error.message);
-            })       
-    })
-}
+        try {
+            const invoiceId = Number(req.params.invoiceId);
+
+            // Валидация входящего параметра на уровне API
+            if (Number.isNaN(invoiceId)) {
+                return res.status(400).type('text/plain').send('Некорректный идентификатор накладной');
+            }
+
+            // 1. Получаем метаданные шапки цеховой накладной и её тип
+            const titleQuery = `
+                SELECT n.num AS num, 
+                       n.dat AS dat, 
+                       t.nam AS tnam, 
+                       d.nam AS dnam, 
+                       ef.nam AS efnam, 
+                       et.nam AS etnam, 
+                       n.tip AS idtype 
+                FROM parti_nakl AS n 
+                INNER JOIN parti_nakl_tip AS t ON t.id = n.tip 
+                INNER JOIN nakl_doc AS d ON t.id_doc = d.id 
+                INNER JOIN nakl_emp AS ef ON t.id_from = ef.id 
+                INNER JOIN nakl_emp AS et ON t.id_to = et.id 
+                WHERE n.id = $1
+            `;
+            const dataTitle = await db.oneOrNone(titleQuery, [invoiceId]);
+
+            if (!dataTitle) {
+                return res.status(404).type('text/plain').send('Цеховая накладная не найдена');
+            }
+
+            // 2. Определяем SQL-запрос в зависимости от типа накладной
+            let itemsQuery = "";
+            
+            if (dataTitle.idtype === 1) {
+                // Запрос для упакованной продукции
+                itemsQuery = `
+                    SELECT e.marka || ' ' || 'ф' || p.diam || 
+                           CASE WHEN p.id_var <> 1 THEN ' /' || ev.nam || '/' ELSE '' END || 
+                           ' (' || ep.pack_ed || ')' AS nam, 
+                           p.n_s AS npart, 
+                           w.kvo AS kvo 
+                    FROM parti_pack AS w 
+                    INNER JOIN parti AS p ON p.id = w.id_part 
+                    INNER JOIN elrtr AS e ON e.id = p.id_el 
+                    INNER JOIN el_pack AS ep ON ep.id = p.id_pack 
+                    INNER JOIN elrtr_vars ev ON ev.id = p.id_var 
+                    WHERE w.id_nakl = $1 
+                    ORDER BY w.id
+                `;
+            } else if (dataTitle.idtype === 2) {
+                // Запрос для брака
+                itemsQuery = `
+                    SELECT e.marka || ' ' || 'ф' || p.diam || 
+                           CASE WHEN p.id_var <> 1 THEN ' /' || ev.nam || '/' ELSE '' END || 
+                           ' (' || ep.pack_ed || ')' AS nam, 
+                           p.n_s AS npart, 
+                           w.kvo AS kvo 
+                    FROM parti_break AS w 
+                    INNER JOIN parti AS p ON p.id = w.id_part 
+                    INNER JOIN elrtr AS e ON e.id = p.id_el 
+                    INNER JOIN el_pack AS ep ON ep.id = p.id_pack 
+                    INNER JOIN elrtr_vars ev ON ev.id = p.id_var 
+                    WHERE w.id_nakl = $1 
+                    ORDER BY w.id
+                `;
+            } else {
+                // Защита от непредвиденных типов накладных в базе данных
+                return res.status(400).type('text/plain').send(`Неподдерживаемый тип цеховой накладной (idtype: ${dataTitle.idtype})`);
+            }
+
+            // 3. Извлекаем строки спецификации
+            const dataItems = await db.any(itemsQuery, [invoiceId]);
+
+            // 4. Асинхронная генерация .docx документа Word
+            const b64string = await doc.createDoc(dataTitle, dataItems);
+
+            // Настройка заголовков ответа
+            res.setHeader('Content-Disposition', 'attachment; filename="invoice.docx"');
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+            // Отправляем бинарный буфер клиенту
+            res.send(Buffer.from(b64string, 'base64'));
+
+        } catch (error) {
+            console.error('Ошибка генерации цеховой накладной:', error);
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+};

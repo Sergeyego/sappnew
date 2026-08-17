@@ -39,17 +39,7 @@ module.exports = function (app) {
                 }
             }
             sums["marka"] = "ИТОГО";
-            let tbl_col = {};
-            for (let j = 0; j < data.fields.length; j++) {
-                let ob = {};
-                const val = (sums[data.fields[j].nam] == undefined) ? null : sums[data.fields[j].nam];
-                ob["edit_role"] = val;
-                ob["display_role"] = autorest.getDisplay(val, data.fields[j].udt_name, 1, true);
-                ob["background_role"] = "#FFFFFF";
-                ob["tooltip_role"] = "";
-                tbl_col[data.fields[j].nam] = ob;
-            }
-            data.rows.push(tbl_col);
+            autorest.insertRow(data,sums,data.rows.length);
             //console.log(tbl_col);
             res.json(data);
         } catch (error) {

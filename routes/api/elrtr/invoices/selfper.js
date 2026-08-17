@@ -1,51 +1,78 @@
+const db = require('../../../../postgres.js');
+const doc = require('../../../../invoice.js');
+
 module.exports = function (app) {
-    const db = require('../../../../postgres.js');
-    const doc = require('../../../../invoice.js');
     app.get("/elrtr/invoices/selfper/:type/:beg/:end", async (req, res) => {
-        db.one("select date_part('month',$2::date)  as num, NULL as dat, sc.nam  as tnam, nd.nam as dnam, ne.nam as efnam, ne2.nam as etnam, "+
-            "to_char($1::date, 'DD.MM.YYYY')||'-'||to_char($2::date, 'DD.MM.YYYY') as period "+
-            "from self_cons sc "+
-            "inner join nakl_doc nd on nd.id = sc.id_doc "+
-            "inner join nakl_emp ne on ne.id = sc.id_from "+
-            "inner join nakl_emp ne2 on ne2.id = sc.id_to "+
-            "where sc.id = $3", [ String(req.params["beg"]), String(req.params["end"]), Number(req.params["type"]) ] )
-            .then((dataTitle) => {
-                //console.log('DATA:', dataTitle);
-                let query = "select e.marka||' '||'ф'||p.diam || "+
-                            "CASE WHEN p.id_var<>1 THEN ' /'||ev.nam ||'/' ELSE '' END ||' ('||ep.pack_ed||')' as nam, "+
-                            "NULL as npart, sum(psi.kvo) as kvo from prod_self_items psi "+
-                            "inner join prod_self ps on ps.id = psi.id_self "+
-                            "inner join parti as p on p.id=psi.id_part "+
-                            "inner join elrtr as e on e.id=p.id_el "+
-                            "inner join el_pack as ep on ep.id=p.id_pack "+
-                            "inner join elrtr_vars ev on ev.id = p.id_var "+
-                            "where ps.id_cons = $3 and ps.dat between $1::date and $2::date "+
-                            "group by e.marka, p.diam, ev.nam , p.id_var, ep.pack_ed "+
-                            "order by nam";
-                db.any(query, [ String(req.params["beg"]), String(req.params["end"]), Number(req.params["type"]) ])
-                    .then((dataItems) =>{
-                        //console.log('DATA:', dataItems);
-                        doc.createDoc(dataTitle,dataItems)
-                        .then((b64string)=>{
-                            res.setHeader('Content-Disposition', 'attachment; filename=invioce.docx');
-                            res.send(Buffer.from(b64string, 'base64'));
-                        })
-                        .catch((error) => {
-                            console.log('ERROR:', error);
-                            res.status(500).type('text/plain');
-                            res.send(error.message);
-                        })
-                    })
-                    .catch((error) => {
-                        console.log('ERROR:', error);
-                        res.status(500).type('text/plain');
-                        res.send(error.message);
-                    })
-            })
-            .catch((error) => {
-                console.log('ERROR:', error);
-                res.status(500).type('text/plain');
-                res.send(error.message);
-            })       
-    })
-}
+        try {
+            const type = Number(req.params.type);
+            const { beg, end } = req.params;
+
+            // Валидация входных параметров
+            if (Number.isNaN(type)) {
+                return res.status(400).type('text/plain').send('Некорректный идентификатор типа (статьи)');
+            }
+
+            // Создаем единый объект параметров для безопасной и понятной подстановки в SQL
+            const queryParams = {
+                beg: beg,
+                end: end,
+                type: type
+            };
+
+            // 1. Извлекаем метаданные шапки периодической накладной
+            // Использование именованных параметров ${variable} исключает путаницу с индексами $1, $2
+            const titleQuery = `
+                SELECT date_part('month', \${end}::date) AS num, 
+                       NULL AS dat, 
+                       sc.nam AS tnam, 
+                       nd.nam AS dnam, 
+                       ne.nam AS efnam, 
+                       ne2.nam AS etnam, 
+                       to_char(\${beg}::date, 'DD.MM.YYYY') || '-' || to_char(\${end}::date, 'DD.MM.YYYY') AS period 
+                FROM self_cons sc 
+                INNER JOIN nakl_doc nd ON nd.id = sc.id_doc 
+                INNER JOIN nakl_emp ne ON ne.id = sc.id_from 
+                INNER JOIN nakl_emp ne2 ON ne2.id = sc.id_to 
+                WHERE sc.id = \${type}
+            `;
+            const dataTitle = await db.oneOrNone(titleQuery, queryParams);
+
+            if (!dataTitle) {
+                return res.status(404).type('text/plain').send('Статья собственного потребления не найдена');
+            }
+
+            // 2. Извлекаем агрегированные строки (сумму килограмм) за указанный период
+            const itemsQuery = `
+                SELECT e.marka || ' ' || 'ф' || p.diam || 
+                       CASE WHEN p.id_var <> 1 THEN ' /' || ev.nam || '/' ELSE '' END || 
+                       ' (' || ep.pack_ed || ')' AS nam, 
+                       NULL AS npart, 
+                       SUM(psi.kvo) AS kvo 
+                FROM prod_self_items psi 
+                INNER JOIN prod_self ps ON ps.id = psi.id_self 
+                INNER JOIN parti AS p ON p.id = psi.id_part 
+                INNER JOIN elrtr AS e ON e.id = p.id_el 
+                INNER JOIN el_pack AS ep ON ep.id = p.id_pack 
+                INNER JOIN elrtr_vars ev ON ev.id = p.id_var 
+                WHERE ps.id_cons = \${type} 
+                  AND ps.dat BETWEEN \${beg}::date AND \${end}::date 
+                GROUP BY e.marka, p.diam, ev.nam, p.id_var, ep.pack_ed 
+                ORDER BY nam
+            `;
+            const dataItems = await db.any(itemsQuery, queryParams);
+
+            // 3. Асинхронная генерация Word-документа
+            const b64string = await doc.createDoc(dataTitle, dataItems);
+
+            res.setHeader('Content-Disposition', 'attachment; filename="invoice.docx"');
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+            // Отдача бинарного буфера в поток ответа
+            res.send(Buffer.from(b64string, 'base64'));
+
+        } catch (error) {
+            console.error('Ошибка генерации периодической накладной собств. потребления:', error);
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+};

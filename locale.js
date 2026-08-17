@@ -1,135 +1,135 @@
-const intFormatter = new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : 0 });
-const dateFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "numeric", day: "numeric"});
-const dateLongFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "long", day: "numeric"});
-const dateTimeFormatter = new Intl.DateTimeFormat("ru-RU",{year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric"});
-const timeFormatter = new Intl.DateTimeFormat("ru-RU",{hour: "numeric", minute: "numeric"});
+const intFormatter = new Intl.NumberFormat("ru-RU", { style: "decimal", minimumFractionDigits: 0 });
+const dateFormatter = new Intl.DateTimeFormat("ru-RU", { year: "numeric", month: "numeric", day: "numeric" });
+const dateLongFormatter = new Intl.DateTimeFormat("ru-RU", { year: "numeric", month: "long", day: "numeric" });
+const dateTimeFormatter = new Intl.DateTimeFormat("ru-RU", { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" });
+const timeFormatter = new Intl.DateTimeFormat("ru-RU", { hour: "numeric", minute: "numeric" });
 
+// Кэш для форматировщиков чисел с плавающей точкой
 const mapDecFormatter = new Map();
-for (i=1; i<5; i++){
-    mapDecFormatter.set(i,new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : i, maximumFractionDigits : i}));
+for (let i = 1; i < 5; i++) {
+    mapDecFormatter.set(i, new Intl.NumberFormat("ru-RU", { style: "decimal", minimumFractionDigits: i, maximumFractionDigits: i }));
 }
 
-let insNumber = function (val, dec){
-    if (val===null) return ""; 
-    if (dec>0 && dec!=null && dec!=undefined){
-        if (dec<5){
-            return mapDecFormatter.get(dec).format(val);
-        } else {
-            return new Intl.NumberFormat("ru-RU", {style: "decimal", minimumFractionDigits : dec, maximumFractionDigits : dec}).format(val);
-        }
-    } else {
-        return intFormatter.format(val);
+// Вспомогательная функция для безопасного создания/получения форматировщика из кэша
+function getDecFormatter(dec) {
+    if (!mapDecFormatter.has(dec)) {
+        mapDecFormatter.set(dec, new Intl.NumberFormat("ru-RU", { style: "decimal", minimumFractionDigits: dec, maximumFractionDigits: dec }));
     }
+    return mapDecFormatter.get(dec);
 }
 
-let insDate = function (dat){
-    return (dat===null)? "" : dateFormatter.format(dat);
+// Вспомогательная функция для безопасного приведения к объекту Date
+function parseDate(val) {
+    if (val === null || val === undefined) return null;
+    if (val instanceof Date) return val;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
 }
 
-let insDateLong = function (dat){
-    return (dat===null)? "" : dateLongFormatter.format(dat);
+let insNumber = function (val, dec) {
+    if (val === null || val === undefined) return ""; 
+    
+    const num = Number(val);
+    if (Number.isNaN(num)) return ""; // Защита от некорректных строк, приводящих к NaN
+    
+    // Если dec передан и он больше 0, используем кэшированный или динамический форматтер
+    if (typeof dec === 'number' && dec > 0) {
+        return getDecFormatter(dec).format(num);
+    }
+    
+    return intFormatter.format(num);
+}
+
+let insDate = function (dat) {
+    const d = parseDate(dat);
+    return d ? dateFormatter.format(d) : "";
+}
+
+let insDateLong = function (dat) {
+    const d = parseDate(dat);
+    return d ? dateLongFormatter.format(d) : "";
 }
 
 let insDateTime = function (dtm) {
-    return (dtm===null)? "" : dateTimeFormatter.format(dtm);
+    const d = parseDate(dtm);
+    return d ? dateTimeFormatter.format(d) : "";
 }
 
 let insTime = function (tm) {
-    return (tm===null)? "" : timeFormatter.format(tm);
+    if (tm instanceof Date) return timeFormatter.format(tm);
+    if (typeof tm === 'string' && tm.length >= 5) return tm.substring(0, 5); 
+    return tm ? String(tm) : "";
 }
 
 let insUpperFirst = function (str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
+    if (isEmptyStr(str)) return "";
+    const s = String(str);
+    return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-let isEmptyStr = function(str){
-    return str==='' || str===undefined || str===null || str.trim().length===0;
+let isEmptyStr = function(str) {
+    if (str === '' || str === undefined || str === null) {
+        return true;
+    }
+    return String(str).trim().length === 0;
 }
 
 let insText = function (str) {
-    return isEmptyStr(str) ? '' : str;
+    return isEmptyStr(str) ? '' : String(str);
 }
 
-let insTrans = function (str, cfg){
-    let out="";
-    var map = new Map();
+// Создаем базовый словарь для строчных букв (один раз в памяти модуля)
+const baseMap = new Map([
+    ["а","a"], ["б","b"], ["в","v"], ["г","g"], ["д","d"], ["е","e"], ["ё","e"],
+    ["ж","zj"], ["з","z"], ["и","i"], ["й","i"], ["к","k"], ["л","l"], ["м","m"],
+    ["н","n"], ["о","o"], ["п","p"], ["р","r"], ["с","s"], ["т","t"], ["у","u"],
+    ["ф","f"], ["х","kh"], ["ц","ts"], ["ч","ch"], ["ш","sh"], ["щ","shch"],
+    ["ъ","ie"], ["ы","y"], ["ь",""], ["э","e"], ["ю","iu"], ["я","ia"]
+]);
 
-    map.set("а","a");
-    map.set("б","b");
-    map.set("в","v");
-    map.set("г","g");
-    map.set("д","d");
-    map.set("е","e");
-    map.set("ё","e");
-    map.set("ж","zj");
-    map.set("з","z");
-    map.set("и","i");
-    map.set("й","i");
-    map.set("к","k");
-    map.set("л","l");
-    map.set("м","m");
-    map.set("н","n");
-    map.set("о","o");
-    map.set("п","p");
-    map.set("р","r");
-    map.set("с","s");
-    map.set("т","t");
-    map.set("у","u");
-    map.set("ф","f");
-    map.set("х","kh");
-    map.set("ц","ts");
-    map.set("ч","ch");
-    map.set("ш","sh");
-    map.set("щ","shch");
-    map.set("ъ","ie");
-    map.set("ы","y");
-    map.set("ь","");
-    map.set("э","e");
-    map.set("ю","iu");
-    map.set("я","ia");
+// Генерируем карту для стандартного транслита (включая заглавные)
+const translitMap = new Map(baseMap);
+for (const [key, value] of baseMap.entries()) {
+    const upperKey = key.toUpperCase();
+    const upperValue = value.charAt(0).toUpperCase() + value.slice(1);
+    translitMap.set(upperKey, upperValue);
+}
 
-    var tmap = new Map(map);
+// Генерируем специальную карту для химического режима ('chem')
+const chemMap = new Map(translitMap);
+const chemOverrides = {
+    "Б": "Nb", "В": "W", "Г": "Mn", "Д": "Cu", "М": "Mo", "Н": "Ni",
+    "С": "Si", "Т": "Ti", "Ф": "V", "Х": "Cr", "Ц": "Zr", "Ю": "Al"
+};
+for (const [key, value] of Object.entries(chemOverrides)) {
+    chemMap.set(key, value);
+}
 
-    for (const key of map.keys()) {
-        tmap.set(insUpperFirst(key),insUpperFirst(map.get(key)));
-    }
-
-    var cmap = new Map(tmap);
-    cmap.set("Б","Nb");
-    cmap.set("В","W");
-    cmap.set("Г","Mn");
-    cmap.set("Д","Cu");
-    cmap.set("М","Mo");
-    cmap.set("Н","Ni");
-    cmap.set("С","Si");
-    cmap.set("Т","Ti");
-    cmap.set("Ф","V");
-    cmap.set("Х","Cr");
-    cmap.set("Ц","Zr");
-    cmap.set("Ю","Al");
-
-    for (let i=0; i<str.length; i++){
-        let c=str[i];
-        if (tmap.has(c)){
-            if (cfg==='chem' && i>1){
-                out+=cmap.get(c);
-            } else {
-                out+=tmap.get(c);
-            }
+let insTrans = function (str, cfg) {
+    if (!str) return ""; 
+    let out = "";
+    const isChem = (cfg === 'chem');
+    
+    for (let i = 0; i < str.length; i++) {
+        const c = str[i];
+        
+        if (isChem && i > 1) {
+            out += chemMap.has(c) ? chemMap.get(c) : c;
         } else {
-            out+=c;
+            out += translitMap.has(c) ? translitMap.get(c) : c;
         }
     }
-    
     return out;
 }
 
-module.exports.insNumber = insNumber;
-module.exports.insDate = insDate;
-module.exports.insDateLong = insDateLong;
-module.exports.insDateTime = insDateTime;
-module.exports.insUpperFirst = insUpperFirst;
-module.exports.insTrans = insTrans;
-module.exports.isEmptyStr = isEmptyStr;
-module.exports.insText = insText;
-module.exports.insTime = insTime;
+module.exports = {
+    insNumber,
+    insDate,
+    insDateLong,
+    insDateTime,
+    insTime,
+    insUpperFirst,
+    isEmptyStr,
+    insText,
+    insTrans
+};

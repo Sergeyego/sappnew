@@ -3,16 +3,16 @@ const bodyParser = require('body-parser');
 const jsonParser = bodyParser.json({ limit: '10mb' });
 
 let getNumFmt = function (id_type, dec) {
-    let fmt="";
-    if (id_type==6 && dec>0){
-        const code='0';
-        fmt="# ##0."+code.padEnd(dec,'0');
-    } else if (id_type==2){
-        fmt="0";
-    } else if (id_type==14) {
-        fmt="dd.mm.yyyy";
-    } else if (id_type==16) {
-        fmt="dd.mm.yyyy HH:MM";
+    let fmt = "";
+    if (id_type == 6 && dec > 0) {
+        const code = '0';
+        fmt = "# ##0." + code.padEnd(dec, '0');
+    } else if (id_type == 2) {
+        fmt = "0";
+    } else if (id_type == 14) {
+        fmt = "dd.mm.yyyy";
+    } else if (id_type == 16) {
+        fmt = "dd.mm.yyyy hh:mm";
     }
     return fmt;
 }
@@ -21,87 +21,100 @@ module.exports = function (app) {
 
     app.post("/xlsx/create", jsonParser, async (req, res) => {
         try {
-            //console.log(req.body);
-            // Создаем рабочую книгу
+            const { title, columns: reqColumns, rows: reqRows, header_height } = req.body;
+
             let totalWidth = 0.0;
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Лист 1');
-            worksheet.headerFooter.oddHeader = "&L" + req.body.title;
+            worksheet.headerFooter.oddHeader = "&L" + title;
 
             worksheet.pageSetup.paperSize = 9;
             worksheet.pageSetup.orientation = 'portrait';
             worksheet.pageSetup.fitToPage = true;
-            worksheet.pageSetup.fitToWidth = 1;  // Вписать в 1 страницу по ширине
+            worksheet.pageSetup.fitToWidth = 1;
             worksheet.pageSetup.fitToHeight = 0;
             worksheet.pageSetup.margins = {
-                left: 0.59,   // Левое поле (~1.5 см)
-                right: 0.59,  // Правое поле (~1.5 см)
-                top: 0.59,    // Верхнее поле (~1.5 см)
-                bottom: 0.59, // Нижнее поле (~1.5 см)
-                header: 0.3,  // Отступ для верхнего колонтитула
-                footer: 0.3   // Отступ для нижнего колонтитула
+                left: 0.59, right: 0.59, top: 0.59, bottom: 0.59,
+                header: 0.3, footer: 0.3
             };
 
-            // Настраиваем колонки (заголовки, ключи данных и ширина)
-            let columns = new Array;
-            for (let j = 0; j < req.body.columns.length; j++) {
-                const obj = {
-                    "header": req.body.columns[j].header,
-                    "key": req.body.columns[j].key,
-                    "width": req.body.columns[j].width / 7.0
-                };
-                columns.push(obj);
-                totalWidth+=(req.body.columns[j].width / 7.0);
+            // 1. Оптимизация: Подготавливаем метаданные колонок и форматы ЗАРАНЕЕ
+            const columns = [];
+            const colMetaMap = []; // Массив для быстрого O(1) доступа к форматам во время прохода по строкам
+
+            for (let j = 0; j < reqColumns.length; j++) {
+                const col = reqColumns[j];
+                const width = col.width / 7.0;
+
+                columns.push({
+                    header: col.header,
+                    key: col.key,
+                    width: width
+                });
+
+                totalWidth += width;
+
+                // Кэшируем вычисленный формат и тип
+                colMetaMap.push({
+                    key: col.key,
+                    id_type: col.id_type,
+                    numFmt: getNumFmt(col.id_type, col.dec)
+                });
             }
 
-            if (totalWidth>150){
-                worksheet.pageSetup.orientation = 'landscape';
-            }
-            if (totalWidth>500){
-                worksheet.pageSetup.fitToWidth = 0;
-            }
+            if (totalWidth > 150) worksheet.pageSetup.orientation = 'landscape';
+            if (totalWidth > 500) worksheet.pageSetup.fitToWidth = 0;
 
             worksheet.columns = columns;
 
-            for (let i = 0; i < req.body.rows.length; i++) {
-                worksheet.addRow(req.body.rows[i]);
-            }
+            // Быстрое добавление всех строк
+            worksheet.addRows(reqRows);
 
             // Стилизуем шапку таблицы (строка 1)
             const headerRow = worksheet.getRow(1);
             headerRow.font = { name: 'Arial', size: 10, bold: true };
-            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true};
-            headerRow.height = req.body.header_height;
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            headerRow.height = header_height;
 
-            // Задаем числовые форматы и границы для ячеек с данными
+            // Серая граница для переиспользования
+            const thinBorder = {
+                top: { style: 'thin', color: { argb: 'FF808080' } },
+                left: { style: 'thin', color: { argb: 'FF808080' } },
+                bottom: { style: 'thin', color: { argb: 'FF808080' } },
+                right: { style: 'thin', color: { argb: 'FF808080' } }
+            };
+
+            // 2. Оптимизированный проход по ячейкам
             worksheet.eachRow((row, rowNumber) => {
+                // Массив colMetaMap гарантирует совпадение индексов с физическими ячейками
+                colMetaMap.forEach((meta) => {
+                    const cell = row.getCell(meta.key);
 
-                for (let j = 0; j < req.body.columns.length; j++) {
-                    const key = req.body.columns[j].key;
+                    if (rowNumber > 1) { // Если это строка данных
+                        cell.font = { name: 'Arial', size: 10, bold: false };
 
-                    if (rowNumber > 1) { //Если это не шапка
-                        const id_type = req.body.columns[j].id_type;
-                        const dec = req.body.columns[j].dec;
-                        row.getCell(key).font = { name: 'Arial', size: 10, bold: false };
-                        row.getCell(key).numFmt = getNumFmt(id_type, dec);
-                        if (id_type === 6 && row.getCell(key).value === 0.0) {
-                            row.getCell(key).value = null;
+                        if (meta.numFmt) {
+                            cell.numFmt = meta.numFmt;
                         }
-                        if (id_type===14 || id_type===16){
-                            row.getCell(key).value = new Date(row.getCell(key).value);
+
+                        const val = cell.value;
+
+                        // Очистка нулевых вещественных значений
+                        if (meta.id_type === 6 && val === 0.0) {
+                            cell.value = null;
+                        }
+                        // Безопасное приведение к Date с защитой от Invalid Date
+                        else if ((meta.id_type === 14 || meta.id_type === 16) && val) {
+                            const parsedDate = new Date(val);
+                            cell.value = isNaN(parsedDate.getTime()) ? null : parsedDate;
                         }
                     }
-                    // Тонкие границы для всех ячеек с данными
-                    row.getCell(key).border = {
-                        top: { style: 'thin', color: { argb: 'FF808080' } },
-                        left: { style: 'thin', color: { argb: 'FF808080' } },
-                        bottom: { style: 'thin', color: { argb: 'FF808080' } },
-                        right: { style: 'thin', color: { argb: 'FF808080' } }
-                    };
-                }
+
+                    // Применяем границы ко всем строкам (включая шапку)
+                    cell.border = thinBorder;
+                });
             });
 
-            // Устанавливаем HTTP-заголовки ответа
             res.setHeader(
                 'Content-Type',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -111,7 +124,6 @@ module.exports = function (app) {
                 'attachment; filename="sales_report.xlsx"'
             );
 
-            // Стримим готовый файл напрямую в HTTP-ответ Express
             await workbook.xlsx.write(res);
             res.end();
 
@@ -119,6 +131,5 @@ module.exports = function (app) {
             console.error('Ошибка генерации Excel:', error);
             res.status(500).send(error.message);
         }
-
     });
 }

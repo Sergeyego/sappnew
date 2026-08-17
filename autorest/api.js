@@ -4,14 +4,13 @@ const db = require('../postgres.js');
 const bodyParser = require('body-parser');
 
 module.exports = function (app) {
-    
+
     app.get("/autorest/upddata", async (req, res) => {
-        const upd = await autorest.updData();
-        if (upd.ok){
-            res.status(200).type('text/plain');
-            res.send("Обновлено успешно");
-        } else {
-            res.status(404).type('text/plain').send(upd.error);
+        try {
+            await autorest.updData();
+            res.status(200).type('text/plain').send("Обновлено успешно");
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -44,50 +43,64 @@ module.exports = function (app) {
 
     app.get("/autorest/relations/:name", async (req, res) => {
         try {
-            const rel = await autorest.getRelInfo(req.params["name"]);
-            let like = req.query.like;
-            const key = req.query.key;
-            let limit = "";
-            if (!locale.isEmptyStr(like)){
-                like=like.replace(/'/g,"''");
-                like=like.replace(/\//g,"//");
-                like=like.replace(/%/g,"/%");
-                like=like.replace(/_/g,"/_");
-                limit="30";
+            const rel = await autorest.getRelInfo(req.params.name);
+            const { like, key } = req.query;
+
+            let limit = null;
+            if (!locale.isEmptyStr(like)) {
+                limit = 30;
             } else {
-                limit = (rel.lim===null) ? "" : String(rel.lim);
+                limit = (rel.lim === null) ? null : Number(rel.lim);
             }
-            let query = "SELECT " + rel.col_id + " AS key, " + rel.col_val + " AS disp FROM " + rel.tablename;
-            if (!locale.isEmptyStr(rel.flt) || !locale.isEmptyStr(like) || !locale.isEmptyStr(key)){
-                let flt = "";
-                if (!locale.isEmptyStr(rel.flt)) {
-                    flt+=rel.flt;
-                }
-                if (!locale.isEmptyStr(key)) {
-                    if (flt.length){
-                        flt+=" AND ";
-                    }
-                    flt+=rel.col_id+" = ${key}";
-                }
-                if (!locale.isEmptyStr(like)){
-                    if (flt.length){
-                        flt+=" AND ";
-                    }
-                    flt += rel.col_val+" ILIKE '"+like+"%' ESCAPE '/'";
-                }
-                query+=" WHERE "+flt;
+
+            // Создаем единый объект параметров для pg-promise
+            const queryParams = {
+                col_id: rel.col_id,
+                col_val: rel.col_val,
+                tablename: rel.tablename,
+                key: key,
+                likePattern: !locale.isEmptyStr(like) ? like + '%' : null,
+                limit: limit
+            };
+
+            // Модификатор ~ (тильда) корректно экранирует имена таблиц/колонок, даже если они содержат точки
+            let query = "SELECT ${col_id~} AS key, ${col_val~} AS disp FROM ${tablename~}";
+
+            let filters = [];
+
+            // 1. Системный фильтр из настроек реляции
+            if (!locale.isEmptyStr(rel.flt)) {
+                filters.push(`(${rel.flt})`);
             }
+
+            // 2. Фильтр по первичному ключу (ID)
+            if (!locale.isEmptyStr(key)) {
+                filters.push("${col_id~} = ${key}");
+            }
+
+            // 3. Безопасный фильтр ILIKE
+            if (!locale.isEmptyStr(like)) {
+                filters.push("${col_val~} ILIKE ${likePattern}");
+            }
+
+            if (filters.length > 0) {
+                query += " WHERE " + filters.join(" AND ");
+            }
+
             if (!locale.isEmptyStr(rel.sort)) {
-                query += " ORDER BY " + rel.sort;
+                // Сортировке доверяем из конфигурации базы данных
+                query += ` ORDER BY ${rel.sort}`;
             }
-            if (!locale.isEmptyStr(limit)) {
-                query += " LIMIT " + limit;
+
+            if (limit !== null) {
+                query += " LIMIT ${limit}";
             }
-            //console.log(query);
-            const data = await db.any(query,{key : key});
+
+            // pg-promise сам подставит все переменные (и идентификаторы ~, и значения)
+            const data = await db.any(query, queryParams);
             res.json(data);
         } catch (error) {
-            res.status(404).type('text/plain').send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

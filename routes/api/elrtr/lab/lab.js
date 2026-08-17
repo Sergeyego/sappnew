@@ -9,7 +9,7 @@ let getChemTu = async function(id_part){
         "and c.id_var = (select p.id_var from parti as p where p.id = $1 )";
     const state = await db.any(query, [id_part]);
     const mapStat = new Map();
-    for (i = 0; i < state.length; i++) {
+    for (let i = 0; i < state.length; i++) {
         mapStat.set(state[i].id_chem, { min: state[i].min, max: state[i].max });
     }
     return mapStat;
@@ -21,7 +21,7 @@ let getMechTu = async function(id_part){
             "and m.id_var = (select p.id_var from parti as p where p.id = $1 )";
     const state = await db.any(query, [id_part]);
     const mapStat = new Map();
-    for (i = 0; i < state.length; i++) {
+    for (let i = 0; i < state.length; i++) {
         mapStat.set(state[i].id_mech, { min: state[i].min, max: state[i].max });
     }
     return mapStat;
@@ -84,21 +84,21 @@ module.exports = function (app) {
                 }
                 const state = await db.any(query);
                 const mapStat = new Map();
-                for (i = 0; i < state.length; i++) {
-                    let col = "#FFFFFF";
+                for (let i = 0; i < state.length; i++) {
+                    let color = "#FFFFFF";
                     const r = state[i].r;
                     if (r == 1) {
-                        col = "#FFAAAA";
+                        color = "#FFAAAA";
                     } else if (r == 2) {
-                        col = "#AAFFAA";
+                        color = "#AAFFAA";
                     } else if (r == 3) {
-                        col = "#FFFF00";
+                        color = "#FFFF00";
                     }
-                    mapStat.set(state[i].id, col);
+                    mapStat.set(state[i].id, color);
                 }
                 const tbl = await autorest.getTblInfo(tableName);
                 const col = tbl.columns;
-                for (i = 0; i < data.length; i++) {
+                for (let i = 0; i < data.length; i++) {
                     col.forEach(function (cl) {
                         if (mapStat.has(data[i].id.edit_role)) {
                             data[i][cl.nam].background_role = mapStat.get(data[i].id.edit_role);
@@ -108,8 +108,7 @@ module.exports = function (app) {
             }
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -124,7 +123,7 @@ module.exports = function (app) {
                     const mapStat = await getChemTu(id_part);
                     const tbl = await autorest.getTblInfo(tableName);
                     const col = tbl.columns;
-                    for (i = 0; i < data.length; i++) {
+                    for (let i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {
                             if (mapStat.has(data[i].id_chem.edit_role)) {
                                 const tu = mapStat.get(data[i].id_chem.edit_role);
@@ -139,8 +138,7 @@ module.exports = function (app) {
             }
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -155,7 +153,7 @@ module.exports = function (app) {
                     const mapStat = await getMechTu(id_part);
                     const tbl = await autorest.getTblInfo(tableName);
                     const col = tbl.columns;
-                    for (i = 0; i < data.length; i++) {
+                    for (let i = 0; i < data.length; i++) {
                         col.forEach(function (cl) {
                             if (mapStat.has(data[i].id_mech.edit_role)) {
                                 const tu = mapStat.get(data[i].id_mech.edit_role);
@@ -170,8 +168,7 @@ module.exports = function (app) {
             }
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
@@ -198,8 +195,7 @@ module.exports = function (app) {
             }
             res.json(ids);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

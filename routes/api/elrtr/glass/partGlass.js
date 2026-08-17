@@ -31,9 +31,9 @@ module.exports = function (app) {
                     id_sump_load: { "width": -1 }
                 };
                 data = await autorest.getRoData("Стекло", sqlConsStat, [id_load], ["%", "Стекло", "Парт.гл.", "Модуль", "id_korr_load", "id_sump_load"], 1, param);
-                for (i = 0; i < data.rows.length; i++) {
-                    for (j = 0; j < data.fields.length; j++) {
-                        const id_l=data.rows[i]["id_korr_load"].edit_role;
+                for (let i = 0; i < data.rows.length; i++) {
+                    const id_l=data.rows[i]["id_korr_load"].edit_role;
+                    for (let j = 0; j < data.fields.length; j++) {
                         if (id_l === id_korr_load) {
                             data.rows[i][data.fields[j].nam].tooltip_role = korrStr;
                         }
@@ -42,16 +42,16 @@ module.exports = function (app) {
             }
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 
     app.get("/elrtr/glasspar/:id_part/:id_cons", async (req, res) => {
         try {
             const id_part = Number(req.params["id_part"]);
+            const id_cons = Number(req.params["id_cons"]);
             let parData = {};
-            const cons = await db.any(sqlByPart,[id_part, Number(req.params["id_cons"])]);
+            const cons = await db.any(sqlByPart,[id_part, id_cons]);
             if (cons.length){
                 const id_load = cons[0].id;
                 const param = {val : {"dec" : 3}};
@@ -59,8 +59,7 @@ module.exports = function (app) {
             }
             res.json(parData);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

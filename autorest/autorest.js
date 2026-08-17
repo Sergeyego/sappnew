@@ -64,30 +64,47 @@ let mapType = new Map([
     [4096, "regrole"]
 ]);
 
+const tblInfoCache = new Map();
+const relInfoCache = new Map();
+
 let updData = async function () {
-    let err = "";
-    let ok = true;
-    try {
-        await db.any("SELECT refresh_rest_tables_view()");
-    } catch (error) {
-        console.log(error.message);
-        err = error.message;
-        ok = false;
+    const data = await db.any("SELECT refresh_rest_tables_view()");
+    tblInfoCache.clear();
+    relInfoCache.clear();
+    return data;
+}
+
+let getTblInfo = function (nam) {
+    // Если промис уже есть в кэше, сразу возвращаем его (база не дергается)
+    if (tblInfoCache.has(nam)) {
+        return tblInfoCache.get(nam);
     }
-    return { error: err, ok: ok };
+    // Сохраняем промис в кэш ДО await
+    const promise = db.one("select * from rest_tables_view where nam = $1", [nam])
+        .catch(err => {
+            // Если запрос упал, удаляем его из кэша, чтобы следующий вызов попробовал снова
+            tblInfoCache.delete(nam);
+            throw err;
+        });
+
+    tblInfoCache.set(nam, promise);
+    return promise;
 }
 
-let getTblInfo = async function (nam) {
-    const data = await db.one("select * from rest_tables_view where nam = $1", [nam]);
-    //console.log(data);
-    return data;
-}
+let getRelInfo = function (nam) {
+    if (relInfoCache.has(nam)) {
+        return relInfoCache.get(nam);
+    }
+    const promise = db.one("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
+        "left join rest_tables rt on rt.id = rr.id_tbl where rr.nam = $1", [nam])
+        .catch(err => {
+            // Если запрос упал, удаляем его из кэша, чтобы следующий вызов попробовал снова
+            relInfoCache.delete(nam);
+            throw err;
+        });
 
-let getRelInfo = async function (nam) {
-    const data = await db.one("select rr.nam, rr.tablename, rr.col_id, rr.col_val, rr.sort, rr.lim, rr.flt, rt.nam as editor from rest_rels rr " +
-        "left join rest_tables rt on rt.id = rr.id_tbl where rr.nam = $1", [nam]);
-    //console.log(data);
-    return data;
+    relInfoCache.set(nam, promise);
+    return promise;
 }
 
 let getDisplay = function (val, type, dec, hide_zero = false, checkable = false) {
@@ -363,8 +380,24 @@ let getRoData = async function (title, query, param, headers, dec, decConf) {
     return res;
 }
 
+let insertRow = function (roData, objRow, pos, background_role="#FFFFFF"){
+    let tbl_row = {};
+    for (let j = 0; j < roData.fields.length; j++) {
+        let ob = {};
+        const val = (objRow[roData.fields[j].nam] === undefined) ? null : objRow[roData.fields[j].nam];
+        ob["edit_role"] = val;
+        ob["display_role"] = getDisplay(val, roData.fields[j].udt_name, roData.fields[j].dec, true);
+        ob["background_role"] = background_role;
+        ob["tooltip_role"] = "";
+        tbl_row[roData.fields[j].nam] = ob;
+    }
+    roData.rows.splice(pos,0,tbl_row);
+    return roData;
+}
+
 module.exports = {
     getRoData,
+    insertRow,
     getData,
     updData,
     getDisplay,

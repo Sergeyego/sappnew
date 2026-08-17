@@ -1,51 +1,70 @@
+const db = require('../../../../postgres.js');
+const doc = require('../../../../invoice.js');
+
 module.exports = function (app) {
-    const db = require('../../../../postgres.js');
-    const doc = require('../../../../invoice.js');
     app.get("/elrtr/invoices/workshopper/:beg/:end", async (req, res) => {
-        db.one("select date_part('month',$2::date)  as num, NULL as dat, t.nam as tnam, d.nam as dnam, ef.nam as efnam, et.nam as etnam, "+
-            "to_char($1::date, 'DD.MM.YYYY')||'-'||to_char($2::date, 'DD.MM.YYYY') as period "+
-            "from parti_nakl_tip as t "+
-            "inner join nakl_doc as d on t.id_doc=d.id "+
-            "inner join nakl_emp as ef on t.id_from=ef.id "+ 
-            "inner join nakl_emp as et on t.id_to=et.id "+
-            "where t.id = 2", [ String(req.params["beg"]), String(req.params["end"]) ] )
-            .then((dataTitle) => {
-                //console.log('DATA:', dataTitle);
-                let query = "select e.marka||' '||'ф'||p.diam || "+
-                    "CASE WHEN p.id_var<>1 THEN ' /'||ev.nam ||'/' ELSE '' END ||' ('||ep.pack_ed||')' as nam, "+
-                    "NULL as npart, sum(w.kvo) as kvo from parti_break as w "+
-                    "inner join parti_nakl pn on pn.id = w.id_nakl "+
-                    "inner join parti as p on p.id=w.id_part "+
-                    "inner join el_pack as ep on ep.id=p.id_pack "+
-                    "inner join elrtr as e on e.id=p.id_el "+
-                    "inner join elrtr_vars ev on ev.id = p.id_var "+
-                    "where pn.dat between $1::date and $2::date "+
-                    "group by e.marka, p.diam, ev.nam , p.id_var, ep.pack_ed "+
-                    "order by nam";
-                db.any(query, [ String(req.params["beg"]), String(req.params["end"]) ])
-                    .then((dataItems) =>{
-                        //console.log('DATA:', dataItems);
-                        doc.createDoc(dataTitle,dataItems)
-                        .then((b64string)=>{
-                            res.setHeader('Content-Disposition', 'attachment; filename=invioce.docx');
-                            res.send(Buffer.from(b64string, 'base64'));
-                        })
-                        .catch((error) => {
-                            console.log('ERROR:', error);
-                            res.status(500).type('text/plain');
-                            res.send(error.message);
-                        })
-                    })
-                    .catch((error) => {
-                        console.log('ERROR:', error);
-                        res.status(500).type('text/plain');
-                        res.send(error.message);
-                    })
-            })
-            .catch((error) => {
-                console.log('ERROR:', error);
-                res.status(500).type('text/plain');
-                res.send(error.message);
-            })       
-    })
-}
+        try {
+            const { beg, end } = req.params;
+
+            // Единый объект параметров для исключения путаницы с индексами $1, $2
+            const queryParams = {
+                beg: beg,
+                end: end
+            };
+
+            // 1. Извлекаем метаданные шапки периодического отчета по браку
+            const titleQuery = `
+                SELECT date_part('month', \${end}::date) AS num, 
+                       NULL AS dat, 
+                       t.nam AS tnam, 
+                       d.nam AS dnam, 
+                       ef.nam AS efnam, 
+                       et.nam AS etnam, 
+                       to_char(\${beg}::date, 'DD.MM.YYYY') || '-' || to_char(\${end}::date, 'DD.MM.YYYY') AS period 
+                FROM parti_nakl_tip AS t 
+                INNER JOIN nakl_doc AS d ON d.id = t.id_doc 
+                INNER JOIN nakl_emp AS ef ON ef.id = t.id_from 
+                INNER JOIN nakl_emp AS et ON et.id = t.id_to 
+                WHERE t.id = 2
+            `;
+            const dataTitle = await db.oneOrNone(titleQuery, queryParams);
+
+            if (!dataTitle) {
+                return res.status(404).type('text/plain').send('Тип цеховой накладной брака (ID: 2) не найден в справочнике');
+            }
+
+            // 2. Извлекаем агрегированные строки бракованной продукции за указанный период
+            const itemsQuery = `
+                SELECT e.marka || ' ' || 'ф' || p.diam || 
+                       CASE WHEN p.id_var <> 1 THEN ' /' || ev.nam || '/' ELSE '' END || 
+                       ' (' || ep.pack_ed || ')' AS nam, 
+                       NULL AS npart, 
+                       SUM(w.kvo) AS kvo 
+                FROM parti_break AS w 
+                INNER JOIN parti_nakl pn ON pn.id = w.id_nakl 
+                INNER JOIN parti AS p ON p.id = w.id_part 
+                INNER JOIN el_pack AS ep ON ep.id = p.id_pack 
+                INNER JOIN elrtr AS e ON e.id = p.id_el 
+                INNER JOIN elrtr_vars ev ON ev.id = p.id_var 
+                WHERE pn.dat BETWEEN \${beg}::date AND \${end}::date 
+                GROUP BY e.marka, p.diam, ev.nam, p.id_var, ep.pack_ed 
+                ORDER BY nam
+            `;
+            const dataItems = await db.any(itemsQuery, queryParams);
+
+            // 3. Асинхронная генерация Word-документа .docx
+            const b64string = await doc.createDoc(dataTitle, dataItems);
+
+            // Настройка правильных и безопасных заголовков HTTP-ответа
+            res.setHeader('Content-Disposition', 'attachment; filename="invoice.docx"');
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+            // Отправляем бинарный буфер клиенту
+            res.send(Buffer.from(b64string, 'base64'));
+
+        } catch (error) {
+            console.error('Ошибка генерации периодического цехового отчета:', error);
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+};
