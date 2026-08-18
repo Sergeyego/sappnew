@@ -43,8 +43,7 @@ module.exports = function (app) {
             //console.log(tbl_col);
             res.json(data);
         } catch (error) {
-            res.status(500).type('text/plain');
-            res.send(error.message);
+            res.status(500).type('text/plain').send(error.message);
         }
     });
 }

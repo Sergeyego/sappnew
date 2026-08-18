@@ -1,7 +1,8 @@
 const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 //const locale = require('../../../../locale.js');
-var bodyParser = require('body-parser');
+const bodyParser = require('body-parser');
+const ExcelJS = require('exceljs');
 
 module.exports = function (app) {
     app.use("/elrtr/dosage/rcp", bodyParser.json(), async (req, res) => {
@@ -55,15 +56,15 @@ module.exports = function (app) {
     app.get("/elrtr/dosage/calc/:id_rcp", async (req, res) => {
         try {
             //console.log(req.query);
-            const title = "Расход компонентов и проволоки на 1 тонну электродов";
+            const title = "Расход компонентов и проволоки на 1 тонну электродов марки " + req.query.marka;
             const headers = ["Компоненты", "Рецепт.,\n%", "Расч. \nрасход, кг", "Потери,\n%", "Расход на \n1 тонну, кг"];
-            const query = "select m.nam as nam, rc.kvo as rcp, 0.0 as press, m.loss_new as loss, 0.0 as total " +
+            const query = "select m.nam as nam, rc.kvo as rcp, 0.0::float4 as press, m.loss_new as loss, 0.0::float4 as total " +
                 "from rcp_cont rc " +
                 "inner join matr m on m.id = rc.id_matr " +
                 "where rc.id_rcp = $1 " +
                 "order by m.nam";
 
-            const dec=2;
+            const dec = 2;
             const data = await autorest.getRoData(title, query, [Number(req.params["id_rcp"])], headers, dec);
             //console.log(data);
 
@@ -98,7 +99,7 @@ module.exports = function (app) {
             };
 
             //добавляем строку со стеклом
-            autorest.insertRow(data,glass,data.rows.length);
+            autorest.insertRow(data, glass, data.rows.length);
 
             //считаем сумму процентов в рецептуре (должно получаться 112%: 100% в рецептуре и 12% стекла)
             for (let i = 0; i < data.rows.length; i++) {
@@ -130,14 +131,155 @@ module.exports = function (app) {
             };
 
             //добавляем строку с проволокой в начало таблицы
-            autorest.insertRow(data,prov,0,"#FFFF00");
+            autorest.insertRow(data, prov, 0, "#FFFF00");
 
             //добавляем строку с итогами в конец таблицы
-            autorest.insertRow(data,sums,data.rows.length,"#FFFF00");
-
+            autorest.insertRow(data, sums, data.rows.length, "#FFFF00");
             res.json(data);
         } catch (error) {
             //console.log(error);
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/dosage/xlsx/:id_rcp", async (req, res) => {
+        try {
+            const query = "select m.nam as nam, rc.kvo as rcp, m.loss_new/100.0 as loss " +
+                "from rcp_cont rc " +
+                "inner join matr m on m.id = rc.id_matr " +
+                "where rc.id_rcp = $1 " +
+                "order by m.nam";
+            const data = await db.any(query, [Number(req.params["id_rcp"])]);
+
+            //значение для строки со стеклом
+            let glass = {
+                nam: req.query.glass,
+                rcp: 12,
+                loss: 0.1
+            };
+            data.push(glass);
+
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(__dirname + '/template.xlsx');
+            const worksheet = workbook.getWorksheet(1);
+
+            // --- СОХРАНЯЕМ ШИРИНУ КОЛОНОК ИЗ ШАБЛОНА ---
+            const columnWidths = worksheet.columns ? worksheet.columns.map(col => col.width) : [];
+
+            // Заполнение параметров шапки отчета
+            worksheet.getCell('A2').value = worksheet.getCell('A2').value + String(req.query.marka);
+            worksheet.getCell('C6').value = Number(req.query.diam);
+            worksheet.getCell('C7').value = Number(req.query.kfmp);
+            worksheet.getCell('C8').value = Number(req.query.lel);
+            worksheet.getCell('C9').value = 22;
+            worksheet.getCell('C10').value = Number(req.query.dfil);
+            worksheet.getCell('B12').value = String(req.query.provol);
+
+            const startRow = 15;
+
+            if (data && data.length > 0) {
+                // 1. Кэшируем оригинальные стили ВСЕХ колонок строки 15 ДО вставки
+                const styleSource = worksheet.getRow(startRow);
+                const cellStyles = [];
+                styleSource.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    cellStyles[colNumber] = cell.style;
+                });
+
+                // 2. БЛОК ИСПРАВЛЕНИЯ ОБЪЕДИНЕНИЙ ЯЧЕЕК ПОД ТАБЛИЦЕЙ
+                const shiftCount = data.length - 1;
+                const mergesToFix = [];
+
+                if (worksheet._merges) {
+                    Object.keys(worksheet._merges).forEach(key => {
+                        const merge = worksheet._merges[key];
+                        if (merge.top > startRow) {
+                            mergesToFix.push({
+                                top: merge.top + shiftCount,
+                                bottom: merge.bottom + shiftCount,
+                                left: merge.left,
+                                right: merge.right
+                            });
+                            delete worksheet._merges[key];
+                        }
+                    });
+                }
+
+                // Маппим данные из БД в массив массивов
+                const rowsToInsert = data.map(item => [
+                    item.nam,  // A (1)
+                    item.rcp,  // B (2)
+                    null,      // C (3) - под формулу
+                    item.loss, // D (4)
+                    null       // E (5) - под формулу
+                ]);
+
+                // 3. Вставляем строки (нижняя часть шаблона сдвигается)
+                worksheet.insertRows(startRow, rowsToInsert);
+
+                // 4. НАКЛАДЫВАЕМ ОРИГИНАЛЬНЫЕ СТИЛИ И ВСТАВЛЯЕМ ФОРМУЛЫ В СТРОКИ
+                for (let i = 0; i < data.length; i++) {
+                    const currentRowNum = startRow + i;
+                    const currentRow = worksheet.getRow(currentRowNum);
+
+                    cellStyles.forEach((style, colNumber) => {
+                        if (style) {
+                            currentRow.getCell(colNumber).style = style;
+                        }
+                    });
+
+                    // Формула для столбца C:
+                    currentRow.getCell(3).value = { formula: `B${currentRowNum}*$C$${startRow + data.length}/$B$${startRow + data.length}` };
+
+                    // Формула для столбца E:
+                    currentRow.getCell(5).value = { formula: `C${currentRowNum}+C${currentRowNum}*D${currentRowNum}` };
+
+                    currentRow.commit();
+                }
+
+                // 5. Удаляем старую строку-заглушку №15, которая улетела в самый низ
+                worksheet.spliceRows(startRow + data.length, 1);
+
+                // 6. ПОВТОРНОЕ ОБЪЕДИНЕНИЕ ЯЧЕЕК НА НОВЫХ МЕСТАХ
+                mergesToFix.forEach(m => {
+                    worksheet.mergeCells(m.top, m.left, m.bottom, m.right);
+                });
+            }
+
+            // Заполнение формул ИТОГО под таблицей данных
+            worksheet.getCell(`B${startRow + data.length}`).value = { formula: `SUM(B${startRow}:B${startRow + data.length - 1})` };
+            worksheet.getCell(`E${startRow + data.length}`).value = { formula: `SUM(E${startRow}:E${startRow + data.length - 1})` };
+
+            // БЕЗОПАСНАЯ ЗАПИСЬ ДАТЫ НА НОВОЕ СМЕЩЕННОЕ МЕСТО
+            const targetDateRow = 24 + (data.length - 1);
+            const dateCell = worksheet.getCell(`D${targetDateRow}`);
+            dateCell.value = new Date();
+            dateCell.numFmt = 'dd.mm.yyyy';
+
+            // --- ВОССТАНОВЛЕНИЕ НАСТРОЕК СТРАНИЦЫ И ШИРИНЫ КОЛОНОК ---
+            if (worksheet.columns && columnWidths.length > 0) {
+                worksheet.columns.forEach((col, idx) => {
+                    if (columnWidths[idx]) col.width = columnWidths[idx];
+                });
+            }
+
+            worksheet.pageSetup = {
+                orientation: 'portrait',  // Смените на 'landscape', если шаблон горизонтальный
+                paperSize: 9,             // A4
+                fitToPage: true,          // Вписать страницы
+                fitToWidth: 1,            // По ширине в 1 страницу
+                fitToHeight: 0            // По высоте без жестких ограничений
+            };
+
+            workbook.views = [{ firstSheet: 0, activeTab: 0, visibility: 'visible' }];
+            worksheet.getImages();
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename="calc_report.xlsx"');
+
+            await workbook.xlsx.write(res);
+            res.end();
+
+        } catch (error) {
             res.status(500).type('text/plain').send(error.message);
         }
     });
