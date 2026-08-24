@@ -15,59 +15,110 @@ class SyncCache {
         this.catalogZoneOt = new Map();
     }
 
-    async updateKeys() {
+    // 1. Обновление базовых словарей (справочников)
+    async updateDictionaries() {
         const fetchDict = async (obj, kF, vF) => {
-            const res = await odata.get(obj);
+            const res = await odata.get(`${obj}?$select=${kF},${vF}`);
             return new Map((res.value || []).map(i => [String(i[kF]), String(i[vF])]));
         };
 
-        this.partIstKeys = await fetchDict("Catalog_усИсточникиПартий", "Code", "Ref_Key");
-        this.catalogTypeKeys = await fetchDict("Catalog_усВидыНоменклатуры", "Description", "Ref_Key");
-        this.counterKeys = await fetchDict("Catalog_усКонтрагенты", "Code", "Ref_Key");
-        this.shipTypeKeys = await fetchDict("Catalog_усНаправлениеОтгрузки", "Description", "Ref_Key");
-        this.zoneValues = await fetchDict("Catalog_усЗоны", "Description", "Ref_Key");
+        const [partIst, catalogType, counter, shipType, zone] = await Promise.all([
+            fetchDict("Catalog_усИсточникиПартий", "Code", "Ref_Key"),
+            fetchDict("Catalog_усВидыНоменклатуры", "Description", "Ref_Key"),
+            fetchDict("Catalog_усКонтрагенты", "Code", "Ref_Key"),
+            fetchDict("Catalog_усНаправлениеОтгрузки", "Description", "Ref_Key"),
+            fetchDict("Catalog_усЗоны", "Description", "Ref_Key")
+        ]);
 
-        const getSingleKey = async (obj, nam, param) => {
-            const res = await odata.get(`${obj}?$select=Ref_Key&$filter=${param} eq '${nam}'`);
-            return res.value?.[0]?.Ref_Key || this.emptyKey;
-        };
-
-        this.constKeys.clear();
-        this.constKeys.set("Сварочные электроды", await getSingleKey("Catalog_усНоменклатура", "Сварочные электроды", "Description"));
-        this.constKeys.set("Сварочная проволока", await getSingleKey("Catalog_усНоменклатура", "Сварочная проволока", "Description"));
-        this.constKeys.set("Базовая настройка", await getSingleKey("Catalog_усСтадииПриемки", "Базовая настройка", "Description"));
-        this.constKeys.set("Учет партий товара", await getSingleKey("Catalog_усМоделиУчетаНоменклатуры", "Учет партий товара", "Description"));
-        this.constKeys.set("Кондиция", await getSingleKey("Catalog_усСтатусыНоменклатуры", "Кондиция", "Description"));
-        this.constKeys.set("кг", await getSingleKey("Catalog_усЕдиницыИзмерения", "кг", "Description"));
-        this.constKeys.set("000000001", await getSingleKey("Catalog_Организации", "000000001", "Code"));
+        this.partIstKeys = partIst;
+        this.catalogTypeKeys = catalogType;
+        this.counterKeys = counter;
+        this.shipTypeKeys = shipType;
+        this.zoneValues = zone;
     }
 
-    async updateCatalogData() {
-        const cat = await odata.get("Catalog_усНоменклатура");
-        this.catalogKeys = new Map((cat.value || []).map(i => [i.КодКИС, i.Ref_Key]));
+    // 2. Обновление предопределенных констант
+    async updateConstants() {
+        const fetchMultipleKeys = async (obj, field, values) => {
+            const filter = values.map(v => `${field} eq '${v}'`).join(' or ');
+            const res = await odata.get(`${obj}?$select=Ref_Key,${field}&$filter=${filter}`);
+            return new Map((res.value || []).map(i => [i[field], i.Ref_Key]));
+        };
 
-        const packs = await odata.get("Catalog_усУпаковкиНоменклатуры");
+        const [nomKeys, stageKeys, modelKeys, statusKeys, unitKeys, orgKeys] = await Promise.all([
+            fetchMultipleKeys("Catalog_усНоменклатура", "Description", ["Сварочные электроды", "Сварочная проволока"]),
+            fetchMultipleKeys("Catalog_усСтадииПриемки", "Description", ["Базовая настройка"]),
+            fetchMultipleKeys("Catalog_усМоделиУчетаНоменклатуры", "Description", ["Учет партий товара"]),
+            fetchMultipleKeys("Catalog_усСтатусыНоменклатуры", "Description", ["Кондиция"]),
+            fetchMultipleKeys("Catalog_усЕдиницыИзмерения", "Description", ["кг"]),
+            fetchMultipleKeys("Catalog_Организации", "Code", ["000000001"])
+        ]);
+
+        this.constKeys.clear();
+        this.constKeys.set("Сварочные электроды", nomKeys.get("Сварочные электроды") || this.emptyKey);
+        this.constKeys.set("Сварочная проволока", nomKeys.get("Сварочная проволока") || this.emptyKey);
+        this.constKeys.set("Базовая настройка", stageKeys.get("Базовая настройка") || this.emptyKey);
+        this.constKeys.set("Учет партий товара", modelKeys.get("Учет партий товара") || this.emptyKey);
+        this.constKeys.set("Кондиция", statusKeys.get("Кондиция") || this.emptyKey);
+        this.constKeys.set("кг", unitKeys.get("кг") || this.emptyKey);
+        this.constKeys.set("000000001", orgKeys.get("000000001") || this.emptyKey);
+    }
+
+    // 3. Обновление кэша Номенклатуры
+    async updateCatalogKeys() {
+        const cat = await odata.get("Catalog_усНоменклатура?$select=КодКИС,Ref_Key");
+        this.catalogKeys = new Map((cat.value || []).map(i => [i.КодКИС, i.Ref_Key]));
+    }
+
+    // 4. Обновление кэша Упаковок
+    async updateCatalogPacks() {
+        const packs = await odata.get("Catalog_усУпаковкиНоменклатуры?$select=Owner_Key,Description,Ref_Key");
         this.catalogPacks.clear();
         (packs.value || []).forEach(item => {
-            if (!this.catalogPacks.has(item.Owner_Key)) this.catalogPacks.set(item.Owner_Key, []);
+            if (!item.Owner_Key) return;
+            if (!this.catalogPacks.has(item.Owner_Key)) {
+                this.catalogPacks.set(item.Owner_Key, []);
+            }
             this.catalogPacks.get(item.Owner_Key).push({ nam: item.Description, id: item.Ref_Key });
         });
+    }
 
-        const eans = await odata.get("InformationRegister_усШтрихкоды?$filter=like(Штрихкод,'4627120______')");
+    // 5. Обновление кэша Штрихкодов
+    async updateCatalogEans() {
+        const eans = await odata.get("InformationRegister_усШтрихкоды?$filter=like(Штрихкод,'4627120______')&$select=Номенклатура_Key,Штрихкод");
         this.catalogEans.clear();
         (eans.value || []).forEach(item => {
-            if (!this.catalogEans.has(item.Номенклатура_Key)) this.catalogEans.set(item.Номенклатура_Key, new Set());
+            if (!item.Номенклатура_Key) return;
+            if (!this.catalogEans.has(item.Номенклатура_Key)) {
+                this.catalogEans.set(item.Номенклатура_Key, new Set());
+            }
             this.catalogEans.get(item.Номенклатура_Key).add(item.Штрихкод);
         });
+    }
 
-        const zones = await odata.get("InformationRegister_усЗоныОтбора");
+    // 6. Обновление кэша Зон отбора
+    async updateCatalogZoneOt() {
+        const zones = await odata.get("InformationRegister_усЗоныОтбора?$select=Номенклатура_Key,Зона_Key");
         this.catalogZoneOt.clear();
         (zones.value || []).forEach(item => {
-            if (!this.catalogZoneOt.has(item.Номенклатура_Key)) this.catalogZoneOt.set(item.Номенклатура_Key, new Set());
+            if (!item.Номенклатура_Key) return;
+            if (!this.catalogZoneOt.has(item.Номенклатура_Key)) {
+                this.catalogZoneOt.set(item.Номенклатура_Key, new Set());
+            }
             this.catalogZoneOt.get(item.Номенклатура_Key).add(item.Зона_Key);
         });
+    }
 
-        //console.log(this.partIstKeys);
+    // Метод для полной параллельной инициализации (заменяет старые методы)
+    async updateAllData() {
+        await Promise.all([
+            this.updateDictionaries(),
+            this.updateConstants(),
+            this.updateCatalogKeys(),
+            this.updateCatalogPacks(),
+            this.updateCatalogEans(),
+            this.updateCatalogZoneOt()
+        ]);
     }
 
     packKey(ownerKey, nam) {

@@ -64,7 +64,7 @@ class ODataService {
     }
 
     async get(obj) { return this.request(obj, 'GET'); }
-    async post(obj, data) { return /*this.request(obj, 'POST', data);*/{} }
+    async post(obj, data) { return this.request(obj, 'POST', data);{} }
     async patch(obj, data) { return /*this.request(obj, 'PATCH', data);*/{} }
     async delete(obj) { return /*this.request(obj, 'DELETE');*/{} }
 }

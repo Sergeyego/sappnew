@@ -10,7 +10,7 @@ class SyncService {
         const cfg = await db.oneOrNone("SELECT url, usr, pass FROM warehouse_data WHERE id = $1", [idBase]);
         if (!cfg) throw new Error("Конфигурация WMS базы не найдена.");
         odata.init(cfg.url, cfg.usr, cfg.pass);
-        await cache.updateKeys();
+        await cache.updateAllData();
     }
 
     async syncPart(queryPart) {
