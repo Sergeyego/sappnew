@@ -156,7 +156,7 @@ let getFltStr = function (tbl, obj) {
     return flt;
 }
 
-let selectDb = async function (tbl, flt, params) {
+let selectDb = async function (tbl, flt, params, ctx = db) {
     const col = tbl.columns;
     //console.log(col);
     let colstr = "";
@@ -191,7 +191,7 @@ let selectDb = async function (tbl, flt, params) {
     }
 
     //console.log(query);
-    const data = await db.any(query, params);
+    const data = await ctx.any(query, params);
 
     let obj = new Array;
     for (let i = 0; i < data.length; i++) {
@@ -211,7 +211,7 @@ let selectDb = async function (tbl, flt, params) {
     return obj;
 }
 
-let insertDb = async function (tbl, body) {
+let insertDb = async function (tbl, body, ctx = db) {
     const col = tbl.columns;
     let colstr = "";
     let valstr = "";
@@ -237,11 +237,11 @@ let insertDb = async function (tbl, body) {
 
     let query = "INSERT INTO " + tbl.tablename + " (" + colstr + ") VALUES (" + valstr + ") RETURNING " + idstr;
     //console.log(query);
-    const pks = await db.one(query, body);
+    const pks = await ctx.one(query, body);
     return pks;
 }
 
-let updateDb = async function (tbl, body) {
+let updateDb = async function (tbl, body, ctx = db) {
 
     const col = tbl.columns;
     let valstr = "";
@@ -279,14 +279,14 @@ let updateDb = async function (tbl, body) {
         let query = "UPDATE " + tbl.tablename + " SET " + valstr + " WHERE " + fltstr + " RETURNING " + idstr;
         //console.log(query);
         //console.log(parobj);
-        pks = await db.one(query, parobj);
+        pks = await ctx.one(query, parobj);
     } else {
         pks = pkobj;
     }
     return pks;
 }
 
-let deleteDb = async function (tbl, pks) {
+let deleteDb = async function (tbl, pks, ctx = db) {
     const col = tbl.columns;
     let idstr = "";
     let pkstr = "";
@@ -305,7 +305,7 @@ let deleteDb = async function (tbl, pks) {
     let query = "DELETE FROM " + tbl.tablename + " WHERE " + idstr + " RETURNING " + pkstr;
     //console.log(query);
     //console.log(pks);
-    const ret = await db.one(query, pks);
+    const ret = await ctx.one(query, pks);
     return ret;
 }
 
@@ -313,19 +313,36 @@ let getData = async function (tname, req) {
     //console.log(req.method, tname);
     let data = {};
     const tbl = await getTblInfo(tname);
+    
+    // Получаем текущего пользователя и его реальный IP-адрес
+    const currentUser = req.user ? req.user.username : (req.body?.username || 'anonymous');
+    const currentIp = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
+
     if (req.method == "GET") {
+        // Обычное чтение без транзакций
         data = await selectDb(tbl, req.query.filter);
-    } else if (req.method == "POST") {
-        const pks = await insertDb(tbl, req.body);
-        data = await selectDb(tbl, getFltStr(tbl, pks), pks);
-        //console.log(data);
-    } else if (req.method == "PUT") {
-        const pks = await updateDb(tbl, req.body);
-        data = await selectDb(tbl, getFltStr(tbl, pks), pks);
-        //console.log(data);
-    } else if (req.method == "DELETE") {
+    } 
+    else if (req.method == "POST") {
+        // Транзакция для INSERT
+        data = await db.tx(async t => {
+            await t.none("SET LOCAL app.logged_user = $1; SET LOCAL app.current_ip = $2;", [currentUser, currentIp]);
+            const pks = await insertDb(tbl, req.body, t);
+            return await selectDb(tbl, getFltStr(tbl, pks), pks, t);
+        });
+    } 
+    else if (req.method == "PUT") {
+        // Транзакция для UPDATE
+        data = await db.tx(async t => {
+            await t.none("SET LOCAL app.logged_user = $1; SET LOCAL app.current_ip = $2;", [currentUser, currentIp]);
+            const pks = await updateDb(tbl, req.body, t);
+            return await selectDb(tbl, getFltStr(tbl, pks), pks, t);
+        });
+    } 
+    else if (req.method == "DELETE") {
+        // Обычное удаление без транзакции и без логирования
         await deleteDb(tbl, req.query);
     }
+    
     return data;
 }
 

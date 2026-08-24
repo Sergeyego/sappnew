@@ -27,9 +27,9 @@ module.exports = function(router) {
 
     /**
      * 2. Синхронизация документа ожидаемой приемки ЭЛЕКТРОДОВ
-     * URL: GET /api/sync/priem/el/:id_doc
+     * URL: GET /api/wms/sync/priem/el/:id_doc
      */
-    router.get('/sync/priem/el/:id_doc', async (req, res) => {
+    router.get('/wms/sync/priem/el/:id_doc', async (req, res) => {
         try {
             const idDoc = Number(req.params.id_doc);
             if (isNaN(idDoc)) {
@@ -52,9 +52,9 @@ module.exports = function(router) {
 
     /**
      * 3. Синхронизация документа ожидаемой приемки ПРОВОЛОКИ
-     * URL: GET /api/sync/priem/wire/:id_doc
+     * URL: GET /api/wms/sync/priem/wire/:id_doc
      */
-    router.get('/sync/priem/wire/:id_doc', async (req, res) => {
+    router.get('/wms/sync/priem/wire/:id_doc', async (req, res) => {
         try {
             const idDoc = Number(req.params.id_doc);
             if (isNaN(idDoc)) {
@@ -77,9 +77,9 @@ module.exports = function(router) {
 
     /**
      * 4. Синхронизация заказа на отгрузку (Расход)
-     * URL: GET /api/sync/ship/:id_ship
+     * URL: GET /api/wms/sync/ship/:id_ship
      */
-    router.get('/sync/ship/:id_ship', async (req, res) => {
+    router.get('/wms/sync/ship/:id_ship', async (req, res) => {
         try {
             const idShip = Number(req.params.id_ship);
             if (isNaN(idShip)) {
