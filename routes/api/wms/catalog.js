@@ -2,7 +2,7 @@ const db = require('../../../postgres.js');
 const odata = require('../../../odata/service.js');
 const cache = require('./cache.js');
 
-// Хелпер для параллельного выполнения промисов пачками (чтобы не перегрузить сеть и 1С)
+// Хелпер для параллельного выполнения промисов пачками
 async function chunkPromises(promises, chunkSize = 20) {
     for (let i = 0; i < promises.length; i += chunkSize) {
         const chunk = promises.slice(i, i + chunkSize);
@@ -38,29 +38,28 @@ class SyncCatalog {
 
         if (catalogRequests.length > 0) {
             await chunkPromises(catalogRequests);
-            // Сразу локально обновляем кэш ключей номенклатуры, так как они нужны для упаковок ниже
             await cache.updateCatalogKeys();
         }
 
         // 2. Упаковки
+        const localPackCheck = new Set();
 
         for (const p of await db.any(qPack)) {
             const nomK = cache.catalogKeys.get(p.kis);
             if (nomK) {
-                // Отрезаем строго первые 25 символов, как это делает 1С
-                // .trim() убирает пробелы, если они случайно оказались на стыке среза
                 const safePackName = String(p.npack).substring(0, 25).trim();
                 const dbPackNameLower = safePackName.toLowerCase();
+                const combinedKey = `${nomK}_${dbPackNameLower}`;
 
-                // Проверяем наличие в кэше, сравнивая уже с безопасным обрезанным именем
                 const hasPack = (cache.catalogPacks.get(nomK) || []).some(ep =>
                     String(ep.nam).trim().toLowerCase() === dbPackNameLower
                 );
 
-                if (!hasPack) {
+                if (!hasPack && !localPackCheck.has(combinedKey)) {
+                    localPackCheck.add(combinedKey);
                     console.log("не найдено упаковки, создаем:", safePackName);
                     packRequests.push(() => odata.post("Catalog_усУпаковкиНоменклатуры", {
-                        Description: safePackName, // Отправляем обрезанную строку
+                        Description: safePackName,
                         Owner_Key: nomK,
                         Коэффициент: Number(p.mass_ed),
                         Масса: 0,
@@ -74,11 +73,12 @@ class SyncCatalog {
 
         if (packRequests.length > 0) {
             await chunkPromises(packRequests);
-            // Обновляем кэш упаковок, он нужен для штрихкодов
             await cache.updateCatalogPacks();
         }
 
         // 3. Штрихкоды
+        const localEanCheck = new Set();
+
         for (const e of await db.any(qEan)) {
             const nomK = cache.catalogKeys.get(e.kis);
             if (!nomK) continue;
@@ -86,7 +86,8 @@ class SyncCatalog {
             const pK = cache.packKey(nomK, e.npack);
             const cEans = cache.catalogEans.get(nomK) || new Set();
 
-            if (e.ean_ed && !cEans.has(e.ean_ed)) {
+            if (e.ean_ed && !cEans.has(e.ean_ed) && !localEanCheck.has(e.ean_ed)) {
+                localEanCheck.add(e.ean_ed);
                 console.log("не найден штрихкод", e.ean_ed);
                 eanRequests.push(() => odata.post("InformationRegister_усШтрихкоды", {
                     Номенклатура_Key: nomK,
@@ -96,7 +97,8 @@ class SyncCatalog {
                 }));
                 eanCount++;
             }
-            if (e.ean_group && !cEans.has(e.ean_group)) {
+            if (e.ean_group && !cEans.has(e.ean_group) && !localEanCheck.has(e.ean_group)) {
+                localEanCheck.add(e.ean_group);
                 console.log("не найден штрихкод", e.ean_group);
                 eanRequests.push(() => odata.post("InformationRegister_усШтрихкоды", {
                     Номенклатура_Key: nomK,
@@ -110,7 +112,6 @@ class SyncCatalog {
 
         if (eanRequests.length > 0) {
             await chunkPromises(eanRequests);
-            // Кэш штрихкодов обновим один раз в самом конце метода sync()
         }
 
         return catalogCount + packCount + eanCount;
@@ -167,6 +168,8 @@ class SyncCatalog {
         const zonesW = zRows.filter(r => r.prefix === 'w');
 
         const zoneRequests = [];
+        const orgKey = cache.constKeys.get("000000001") || cache.emptyKey;
+        const localZoneCheck = new Set();
 
         for (const [kis, nomK] of cache.catalogKeys.entries()) {
             const isElectrodes = kis.split(':').length === 2;
@@ -175,17 +178,20 @@ class SyncCatalog {
 
             for (const z of targetZones) {
                 const zK = cache.zoneValues.get(z.nam);
-                if (zK && !currentZones.has(zK)) {
+                const combinedZoneKey = `${nomK}_${zK}`;
+
+                if (zK && !currentZones.has(zK) && !localZoneCheck.has(combinedZoneKey)) {
+                    localZoneCheck.add(combinedZoneKey);
                     console.log("не найдено зоны", z.nam);
                     zoneRequests.push(() => odata.post("InformationRegister_усЗоныОтбора", {
                         Номенклатура_Key: nomK,
                         ТипЗоны: "ОтборМелкий",
                         Зона_Key: zK,
-                        Организация_Key: "00000000-0000-0000-0000-000000000000",
+                        Организация_Key: orgKey, // Заменено на корректный GUID организации из кэша
                         МинимальноеКоличествоКонтейнеров: 0,
                         МаксимальноеКоличествоКонтейнеров: 999,
                         МинимальныйОстатокВКонтейнере: 0,
-                        УпаковкаНоменклатуры_Key: "00000000-0000-0000-0000-000000000000",
+                        УпаковкаНоменклатуры_Key: cache.emptyKey, // Используем константу пустого GUID из кэша
                         МинимальныйОстатокВКонтейнереВУпаковках: 0,
                         МинимальноеКоличествоТоваров: 0,
                         МаксимальноеКоличествоТоваров: 0

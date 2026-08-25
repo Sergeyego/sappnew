@@ -7,6 +7,7 @@ class SyncCache {
         this.partIstKeys = new Map();
         this.catalogTypeKeys = new Map();
         this.counterKeys = new Map();
+        this.postIstKeys = new Map();
         this.shipTypeKeys = new Map();
         this.zoneValues = new Map();
         this.catalogKeys = new Map();
@@ -15,15 +16,40 @@ class SyncCache {
         this.catalogZoneOt = new Map();
     }
 
+    // Хелпер для обхода ограничения 1С OData в 1000 строк (Постраничная загрузка)
+    async getAllPages(urlPath, selectAndFilter = "") {
+        let allRecords = [];
+        let skip = 0;
+        const top = 1000;
+        let hasMore = true;
+
+        const separator = urlPath.includes('?') ? '&' : '?';
+
+        while (hasMore) {
+            const queryUrl = `${urlPath}${separator}${selectAndFilter ? selectAndFilter + '&' : ''}$top=${top}&$skip=${skip}`;
+            const res = await odata.get(queryUrl);
+            const batch = res.value || [];
+            allRecords = allRecords.concat(batch);
+            
+            if (batch.length < top) {
+                hasMore = false;
+            } else {
+                skip += top;
+            }
+        }
+        return allRecords;
+    }
+
     // 1. Обновление базовых словарей (справочников)
     async updateDictionaries() {
         const fetchDict = async (obj, kF, vF) => {
-            const res = await odata.get(`${obj}?$select=${kF},${vF}`);
-            return new Map((res.value || []).map(i => [String(i[kF]), String(i[vF])]));
+            const records = await this.getAllPages(obj, `$select=${kF},${vF}`);
+            return new Map(records.map(i => [String(i[kF]), String(i[vF])]));
         };
 
-        const [partIst, catalogType, counter, shipType, zone] = await Promise.all([
+        const [partIst, postIst, catalogType, counter, shipType, zone] = await Promise.all([
             fetchDict("Catalog_усИсточникиПартий", "Code", "Ref_Key"),
+            fetchDict("Catalog_усИсточникиПоступления", "Description", "Ref_Key"),
             fetchDict("Catalog_усВидыНоменклатуры", "Description", "Ref_Key"),
             fetchDict("Catalog_усКонтрагенты", "Code", "Ref_Key"),
             fetchDict("Catalog_усНаправлениеОтгрузки", "Description", "Ref_Key"),
@@ -31,6 +57,7 @@ class SyncCache {
         ]);
 
         this.partIstKeys = partIst;
+        this.postIstKeys = postIst;
         this.catalogTypeKeys = catalogType;
         this.counterKeys = counter;
         this.shipTypeKeys = shipType;
@@ -66,15 +93,15 @@ class SyncCache {
 
     // 3. Обновление кэша Номенклатуры
     async updateCatalogKeys() {
-        const cat = await odata.get("Catalog_усНоменклатура?$select=КодКИС,Ref_Key");
-        this.catalogKeys = new Map((cat.value || []).map(i => [i.КодКИС, i.Ref_Key]));
+        const records = await this.getAllPages("Catalog_усНоменклатура", "$select=КодКИС,Ref_Key");
+        this.catalogKeys = new Map(records.map(i => [i.КодКИС, i.Ref_Key]));
     }
 
     // 4. Обновление кэша Упаковок
     async updateCatalogPacks() {
-        const packs = await odata.get("Catalog_усУпаковкиНоменклатуры?$select=Owner_Key,Description,Ref_Key");
+        const records = await this.getAllPages("Catalog_усУпаковкиНоменклатуры", "$select=Owner_Key,Description,Ref_Key");
         this.catalogPacks.clear();
-        (packs.value || []).forEach(item => {
+        records.forEach(item => {
             if (!item.Owner_Key) return;
             if (!this.catalogPacks.has(item.Owner_Key)) {
                 this.catalogPacks.set(item.Owner_Key, []);
@@ -85,9 +112,9 @@ class SyncCache {
 
     // 5. Обновление кэша Штрихкодов
     async updateCatalogEans() {
-        const eans = await odata.get("InformationRegister_усШтрихкоды?$filter=like(Штрихкод,'4627120______')&$select=Номенклатура_Key,Штрихкод");
+        const records = await this.getAllPages("InformationRegister_усШтрихкоды", "$filter=like(Штрихкод,'4627120______')&$select=Номенклатура_Key,Штрихкод");
         this.catalogEans.clear();
-        (eans.value || []).forEach(item => {
+        records.forEach(item => {
             if (!item.Номенклатура_Key) return;
             if (!this.catalogEans.has(item.Номенклатура_Key)) {
                 this.catalogEans.set(item.Номенклатура_Key, new Set());
@@ -98,9 +125,9 @@ class SyncCache {
 
     // 6. Обновление кэша Зон отбора
     async updateCatalogZoneOt() {
-        const zones = await odata.get("InformationRegister_усЗоныОтбора?$select=Номенклатура_Key,Зона_Key");
+        const records = await this.getAllPages("InformationRegister_усЗоныОтбора", "$select=Номенклатура_Key,Зона_Key");
         this.catalogZoneOt.clear();
-        (zones.value || []).forEach(item => {
+        records.forEach(item => {
             if (!item.Номенклатура_Key) return;
             if (!this.catalogZoneOt.has(item.Номенклатура_Key)) {
                 this.catalogZoneOt.set(item.Номенклатура_Key, new Set());
@@ -109,7 +136,6 @@ class SyncCache {
         });
     }
 
-    // Метод для полной параллельной инициализации (заменяет старые методы)
     async updateAllData() {
         await Promise.all([
             this.updateDictionaries(),
@@ -121,9 +147,12 @@ class SyncCache {
         ]);
     }
 
+    // Безопасный поиск с учетом обрезки до 25 символов и регистра
     packKey(ownerKey, nam) {
         const list = this.catalogPacks.get(ownerKey) || [];
-        return list.find(p => p.nam === nam)?.id || this.emptyKey;
+        const safeNamLower = String(nam).substring(0, 25).trim().toLowerCase();
+        
+        return list.find(p => String(p.nam).trim().toLowerCase() === safeNamLower)?.id || this.emptyKey;
     }
 }
 

@@ -20,7 +20,14 @@ class SyncHelpers {
         }
     }
 
-    async checkEan(queryDoc, queryGen) {
+    getFormattedDate(dateObj){
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}T00:00:00`;
+    }
+
+    /*async checkEan(queryDoc, queryGen) {
         const rows = await db.any(queryDoc);
         for (const row of rows) {
             if (!row.ean_pallet) {
@@ -32,7 +39,7 @@ class SyncHelpers {
                 await db.none(queryGen, [sCode, row.id]);
             }
         }
-    }
+    }*/
 }
 
 module.exports = new SyncHelpers();
