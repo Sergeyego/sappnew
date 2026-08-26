@@ -72,13 +72,14 @@ class SyncCache {
             return new Map((res.value || []).map(i => [i[field], i.Ref_Key]));
         };
 
-        const [nomKeys, stageKeys, modelKeys, statusKeys, unitKeys, orgKeys] = await Promise.all([
+        const [nomKeys, stageKeys, modelKeys, statusKeys, unitKeys, orgKeys, contTypeKeys] = await Promise.all([
             fetchMultipleKeys("Catalog_усНоменклатура", "Description", ["Сварочные электроды", "Сварочная проволока"]),
             fetchMultipleKeys("Catalog_усСтадииПриемки", "Description", ["Базовая настройка"]),
             fetchMultipleKeys("Catalog_усМоделиУчетаНоменклатуры", "Description", ["Учет партий товара"]),
             fetchMultipleKeys("Catalog_усСтатусыНоменклатуры", "Description", ["Кондиция"]),
             fetchMultipleKeys("Catalog_усЕдиницыИзмерения", "Description", ["кг"]),
-            fetchMultipleKeys("Catalog_Организации", "Code", ["000000001"])
+            fetchMultipleKeys("Catalog_Организации", "Code", ["000000001"]),
+            fetchMultipleKeys("Catalog_усТипыКонтейнеров", "Description", ["Европаллета"])
         ]);
 
         this.constKeys.clear();
@@ -89,6 +90,7 @@ class SyncCache {
         this.constKeys.set("Кондиция", statusKeys.get("Кондиция") || this.emptyKey);
         this.constKeys.set("кг", unitKeys.get("кг") || this.emptyKey);
         this.constKeys.set("000000001", orgKeys.get("000000001") || this.emptyKey);
+        this.constKeys.set("Европаллета", contTypeKeys.get("Европаллета") || this.emptyKey);
     }
 
     // 3. Обновление кэша Номенклатуры
