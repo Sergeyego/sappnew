@@ -1,5 +1,5 @@
 const db = require('../../../postgres.js');
-const odata = require('../../../odata/service.js');
+const odata = require('../../../odata/wms.js');
 const cache = require('./cache.js');
 
 // Хелпер для параллельного выполнения промисов пачками

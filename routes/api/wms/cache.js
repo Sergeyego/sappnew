@@ -1,4 +1,4 @@
-const odata = require('../../../odata/service.js');
+const odata = require('../../../odata/wms.js');
 
 class SyncCache {
     constructor() {
@@ -72,9 +72,10 @@ class SyncCache {
             return new Map((res.value || []).map(i => [i[field], i.Ref_Key]));
         };
 
-        const [nomKeys, stageKeys, modelKeys, statusKeys, unitKeys, orgKeys, contTypeKeys] = await Promise.all([
+        const [nomKeys, stageOpKeys, stageShipKeys, modelKeys, statusKeys, unitKeys, orgKeys, contTypeKeys] = await Promise.all([
             fetchMultipleKeys("Catalog_усНоменклатура", "Description", ["Сварочные электроды", "Сварочная проволока"]),
             fetchMultipleKeys("Catalog_усСтадииПриемки", "Description", ["Базовая настройка"]),
+            fetchMultipleKeys("Catalog_усСтадииОтгрузки", "Description", ["Базовая настройка"]),
             fetchMultipleKeys("Catalog_усМоделиУчетаНоменклатуры", "Description", ["Учет партий товара"]),
             fetchMultipleKeys("Catalog_усСтатусыНоменклатуры", "Description", ["Кондиция"]),
             fetchMultipleKeys("Catalog_усЕдиницыИзмерения", "Description", ["кг"]),
@@ -85,7 +86,8 @@ class SyncCache {
         this.constKeys.clear();
         this.constKeys.set("Сварочные электроды", nomKeys.get("Сварочные электроды") || this.emptyKey);
         this.constKeys.set("Сварочная проволока", nomKeys.get("Сварочная проволока") || this.emptyKey);
-        this.constKeys.set("Базовая настройка", stageKeys.get("Базовая настройка") || this.emptyKey);
+        this.constKeys.set("Базовая настройка приемки", stageOpKeys.get("Базовая настройка") || this.emptyKey);
+        this.constKeys.set("Базовая настройка отгрузки", stageShipKeys.get("Базовая настройка") || this.emptyKey);
         this.constKeys.set("Учет партий товара", modelKeys.get("Учет партий товара") || this.emptyKey);
         this.constKeys.set("Кондиция", statusKeys.get("Кондиция") || this.emptyKey);
         this.constKeys.set("кг", unitKeys.get("кг") || this.emptyKey);

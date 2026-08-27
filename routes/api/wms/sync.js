@@ -1,5 +1,5 @@
 const db = require('../../../postgres.js');
-const odata = require('../../../odata/service.js');
+const odata = require('../../../odata/wms.js');
 const cache = require('./cache.js');
 const helpers = require('./helpers.js');
 const catalog = require('./catalog.js');
@@ -21,24 +21,20 @@ class SyncService {
     async syncPart(queryPart) {
         const rows = await db.any(queryPart);
         const mapPart = new Map();
+        
         for (const r of rows) {
-            // Создаем объект даты
-            const dateObj = new Date(r.dat_part);
 
-            // Формируем год для desc
-            const year = dateObj.getFullYear();
-            const desc = `${r.n_s}-${year}`;
-
+            const numPart = `${r.n_s}-${r.dat_part.getFullYear()}`;
+            
             const nomK = cache.catalogKeys.get(r.kis);
             if (!nomK) continue;
 
-            // Корректно форматируем локальную дату в YYYY-MM-DD
-            const formattedDate = helpers.getFormattedDate(dateObj);
+            const formattedDate = helpers.getFormattedDate(r.dat_part);
 
             const body = {
                 КодКис: String(r.id_part_kis),
-                Description: desc,
-                Code: desc,
+                Description: numPart,
+                Code: numPart,
                 Owner_Key: nomK,
                 ДатаПартии: formattedDate,
                 ДатаПроизводства: formattedDate,
@@ -48,13 +44,11 @@ class SyncService {
                 РецептураПлавка: r.rcpplav || ""
             };
 
-            let key = await this.partiKey(nomK, desc);
+            let key = await this.partiKey(nomK, numPart);
             if (key === cache.emptyKey) {
-                key = (await odata.post("Catalog_усПартииНоменклатуры", body)).Ref_Key;
-                console.log("партия не найдена", desc);
+                key = (await odata.post("Catalog_усПартииНоменклатуры", body))?.Ref_Key || cache.emptyKey;
             } else {
                 await odata.patch(`Catalog_усПартииНоменклатуры(guid'${key}')`, body);
-                console.log("партия найдена", desc);
             }
             mapPart.set(r.id_part_kis, key);
         }
@@ -96,6 +90,7 @@ class SyncService {
             inner join el_pack ep on ep.id = p.id_pack 
             where p2.id_nakl = ${idDoc} 
             order by p2.id`;
+
         return await docs.syncOpDoc(queryDoc, queryDocCont, partCache);
     }
 
@@ -110,6 +105,7 @@ class SyncService {
             inner join  prov_buht pb on pb.id = wpm.id_buht 
             where ww.id_waybill = ${idDoc}`;
         const partCache = await this.syncPart(queryPart);
+
         const queryDoc = `select www.id as id, wwbt.prefix||date_part('year',www.dat)||'-'||www.num as num, www.dat as dat, 
             wwbt.nam as ist, wwbt.codfrom as codfrom, wwbt.codto as codto
             from wire_whs_waybill www 
@@ -129,12 +125,55 @@ class SyncService {
             inner join wire_pack wp on wp.id = p.id_pack_type 
             where ww.id_waybill = ${idDoc}
             order by ww.id`;
+
         return await docs.syncOpDoc(queryDoc, queryDocCont, partCache);
     }
 
     async syncShip(idShip) {
         await this.syncCatalog(true, true);
-        return await docs.syncShipDoc(idShip);
+        const queryPart = `(select distinct 'e:'||o.id_part as id_part_kis, p.id_el ||':'||(select id from diam as d where d.diam=p.diam) as kis, 
+            p.n_s as n_s, p.dat_part as dat_part, i.key1c as id_ist, p.prim_prod as prim, rn.nam as rcpplav 
+            from ship_plan_el o 
+            inner join parti p on p.id = o.id_part 
+            inner join istoch i on i.id = p.id_ist 
+            left join rcp_nam rn on rn.id = p.id_rcp 
+            where o.id_sert = ${idShip} )
+            union 
+            (select distinct 'w:'||wp.id as id_part_kis, wpm.id_provol||':'||wpm.id_diam||':'||wp.id_pack as kis, 
+            wpm.n_s as n_s, wpm.dat as dat_part, ws.key1c as id_ist, wp.prim_prod as prim, pb.n_plav as rcpplav
+            from ship_plan_wire wsc 
+            inner join wire_parti wp on wp.id = wsc.id_wparti 
+            inner join wire_parti_m wpm on wpm.id = wp.id_m 
+            inner join wire_source ws on ws.id = wpm.id_source 
+            inner join  prov_buht pb on pb.id = wpm.id_buht 
+            where wsc.id_ship = ${idShip} )`;
+        const partCache = await this.syncPart(queryPart);
+
+        const queryDoc = `select s.nom_s as num, st.prefix||date_part('year',s.dat_vid)||'-'|| s.nom_s as docnum, 
+            s.dat_vid as dat, s.id_pol as id_pol, st.nam as type from ship_plan s 
+            inner join sert_type st on st.id = s.id_type 
+            where s.id = ${idShip}`;
+        const queryDocCont = `(select 'e:'||o.id_part as id_part_kis, p.id_el ||':'||(select id from diam as d where d.diam=p.diam) as kis, 
+            p.n_s as n_s, p.dat_part as dat_part, ep.pack_ed||'/'||ep.pack_group as pack, 
+            ep.mass_ed as mass_ed, o.massa as kvo, 'e:'||o.id as id_ship 
+            from ship_plan_el o 
+            inner join parti p on p.id = o.id_part 
+            inner join el_pack ep on ep.id = p.id_pack 
+            where o.id_sert = ${idShip} 
+            ) 
+            union 
+            (select 'w:'||wsc.id_wparti as id_part_kis, wpm.id_provol ||':'||wpm.id_diam||':'||p.id_pack as kis, 
+            wpm.n_s as n_s, wpm.dat as dat_part, 
+            wp.pack_ed as pack, 
+            wp.mas_ed as mass_ed, wsc.m_netto as kvo, 'w:'||wsc.id as id_ship
+            from ship_plan_wire wsc 
+            inner join wire_parti p on p.id = wsc.id_wparti 
+            inner join wire_parti_m wpm on wpm.id = p.id_m 
+            inner join wire_pack wp on wp.id = p.id_pack_type 
+            where wsc.id_ship = ${idShip} 
+            ) order by id_ship`;
+
+        return await docs.syncShipDoc(queryDoc, queryDocCont, partCache);
     }
 }
 

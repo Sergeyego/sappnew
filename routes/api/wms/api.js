@@ -2,11 +2,8 @@ const syncService = require('./sync.js');
 
 module.exports = function(router) {
 
-    /**
-     * 1. Полная синхронизация каталогов (Электроды + Проволока)
-     * URL: GET /api/sync/catalog/all
-     */
-    router.get('/wms/sync/catalog/all', async (req, res) => {
+    //Полная синхронизация каталогов (Электроды + Проволока)
+    router.post('/wms/sync/catalog/all', async (req, res) => {
         try {
             const syncEl = req.query.el !== 'false';
             const syncWire = req.query.wire !== 'false';
@@ -25,11 +22,8 @@ module.exports = function(router) {
         }
     });
 
-    /**
-     * 2. Синхронизация документа ожидаемой приемки ЭЛЕКТРОДОВ
-     * URL: GET /api/wms/sync/priem/el/:id_doc
-     */
-    router.get('/wms/sync/priem/el/:id_doc', async (req, res) => {
+    //Синхронизация документа ожидаемой приемки ЭЛЕКТРОДОВ
+    router.post('/wms/sync/priem/el/:id_doc', async (req, res) => {
         try {
             const idDoc = Number(req.params.id_doc);
             if (isNaN(idDoc)) {
@@ -50,11 +44,8 @@ module.exports = function(router) {
         }
     });
 
-    /**
-     * 3. Синхронизация документа ожидаемой приемки ПРОВОЛОКИ
-     * URL: GET /api/wms/sync/priem/wire/:id_doc
-     */
-    router.get('/wms/sync/priem/wire/:id_doc', async (req, res) => {
+    //Синхронизация документа ожидаемой приемки ПРОВОЛОКИ
+    router.post('/wms/sync/priem/wire/:id_doc', async (req, res) => {
         try {
             const idDoc = Number(req.params.id_doc);
             if (isNaN(idDoc)) {
@@ -75,11 +66,8 @@ module.exports = function(router) {
         }
     });
 
-    /**
-     * 4. Синхронизация заказа на отгрузку (Расход)
-     * URL: GET /api/wms/sync/ship/:id_ship
-     */
-    router.get('/wms/sync/ship/:id_ship', async (req, res) => {
+    //Синхронизация заказа на отгрузку
+    router.post('/wms/sync/ship/:id_ship', async (req, res) => {
         try {
             const idShip = Number(req.params.id_ship);
             if (isNaN(idShip)) {
@@ -99,5 +87,4 @@ module.exports = function(router) {
             res.status(500).type('text/plain').send(error.message);
         }
     });
-
 };
