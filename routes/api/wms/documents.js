@@ -67,7 +67,8 @@ class SyncDocuments {
         const endpoint = "Catalog_усКонтрагенты";
 
         // 1. Поиск или создание папки категории (строго IsFolder eq true)
-        const folderFilter = `$filter=Description eq '${info.cat}' and IsFolder eq true`;
+        const category = helpers.escapeODataString(info.cat);
+        const folderFilter = `$filter=Description eq '${category}' and IsFolder eq true`;
         const cats = await odata.get(`${endpoint}?$select=Ref_Key&${folderFilter}`);
         let parentKey = cats?.value?.[0]?.Ref_Key;
 
@@ -77,9 +78,6 @@ class SyncDocuments {
                 IsFolder: true
             });
             parentKey = newFolder?.Ref_Key;
-            if (!parentKey) {
-                throw new Error(`Не удалось создать или получить папку категории: ${info.cat}`);
-            }
         }
 
         // Формируем объект контрагента для 1С
@@ -94,16 +92,12 @@ class SyncDocuments {
         };
 
         // 2. Глобальный поиск
-        let polFilter = "";
-        if (polObject.ИНН) {
-            polFilter = `ИНН eq '${polObject.ИНН}'`;
-        } else {
-            // Ищем по имени по всей базе 1С, исключая папки
-            polFilter = `Description eq '${polObject.Description}' and IsFolder eq false`;
-        }
+        const name = helpers.escapeODataString(polObject.Description);
+        // Ищем по уникальному имени по всей базе 1С, исключая папки
+        const polFilter = `Description eq '${name}' and IsFolder eq false`;
 
-        // Запрашиваем Ref_Key, ИНН и Parent_Key для анализа изменений
-        const check = await odata.get(`${endpoint}?$select=Ref_Key,ИНН,Parent_Key&$filter=${polFilter}`);
+        // Запрашиваем Ref_Key
+        const check = await odata.get(`${endpoint}?$select=Ref_Key&$filter=${polFilter}`);
         const foundElement = check?.value?.[0];
         let polK = foundElement?.Ref_Key;
 
@@ -113,20 +107,8 @@ class SyncDocuments {
             const createdPol = await odata.post(endpoint, polObject);
             polK = createdPol?.Ref_Key;
         } else {
-            // Защита от коллизии: если искали по имени, но в 1С у найденного элемента есть ИНН, 
-            // а у нас в Postgres ИНН пустой — это разные контрагенты. Создаем дубликат.
-            if (!polObject.ИНН && foundElement.ИНН) {
-                console.log(`Коллизия имен! Найдена чужая фирма с ИНН ${foundElement.ИНН}. Создаем отдельную карточку.`);
-                const createdPol = await odata.post(endpoint, polObject);
-                polK = createdPol?.Ref_Key;
-            } else {
-                // Обновляем все реквизиты, включая Parent_Key
-                await odata.patch(`${endpoint}(guid'${polK}')`, polObject);
-            }
-        }
-
-        if (!polK) {
-            throw new Error(`Ошибка синхронизации контрагента для id_pol: ${id_pol}: ${polObject.Description}`);
+            // Обновляем все реквизиты
+            await odata.patch(`${endpoint}(guid'${polK}')`, polObject);
         }
 
         return polK;
@@ -224,7 +206,7 @@ class SyncDocuments {
             //console.log("нет документа", docBody.Number);
             docK = (await odata.post(endpoint, docBody)).Ref_Key;
             await this.syncOpDocCont(docK, rows, partCache);
-            console.log("создан документ", docK);
+            //console.log("создан документ", docK);
             await this.setOpDocStatusNew(docK);
             await this.postDoc(endpoint, docK);
         } else { // Если документ уже есть, проверяем статус

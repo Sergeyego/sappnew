@@ -23,7 +23,7 @@ class SyncCatalog {
         // 1. Номенклатура
         for (const r of await db.any(qStr)) {
             if (!cache.catalogKeys.has(r.kis)) {
-                console.log("не найдено номенклатуры", r.nam);
+                //console.log("не найдено номенклатуры", r.nam);
                 catalogRequests.push(() => odata.post("Catalog_усНоменклатура", {
                     Description: r.nam,
                     КодКИС: r.kis,
@@ -57,7 +57,7 @@ class SyncCatalog {
 
                 if (!hasPack && !localPackCheck.has(combinedKey)) {
                     localPackCheck.add(combinedKey);
-                    console.log("не найдено упаковки, создаем:", safePackName);
+                    //console.log("не найдено упаковки, создаем:", safePackName);
                     packRequests.push(() => odata.post("Catalog_усУпаковкиНоменклатуры", {
                         Description: safePackName,
                         Owner_Key: nomK,
@@ -88,7 +88,7 @@ class SyncCatalog {
 
             if (e.ean_ed && !cEans.has(e.ean_ed) && !localEanCheck.has(e.ean_ed)) {
                 localEanCheck.add(e.ean_ed);
-                console.log("не найден штрихкод", e.ean_ed);
+                //console.log("не найден штрихкод", e.ean_ed);
                 eanRequests.push(() => odata.post("InformationRegister_усШтрихкоды", {
                     Номенклатура_Key: nomK,
                     УпаковкаНоменклатуры_Key: pK,
@@ -99,7 +99,7 @@ class SyncCatalog {
             }
             if (e.ean_group && !cEans.has(e.ean_group) && !localEanCheck.has(e.ean_group)) {
                 localEanCheck.add(e.ean_group);
-                console.log("не найден штрихкод", e.ean_group);
+                //console.log("не найден штрихкод", e.ean_group);
                 eanRequests.push(() => odata.post("InformationRegister_усШтрихкоды", {
                     Номенклатура_Key: nomK,
                     УпаковкаНоменклатуры_Key: pK,
@@ -182,7 +182,7 @@ class SyncCatalog {
 
                 if (zK && !currentZones.has(zK) && !localZoneCheck.has(combinedZoneKey)) {
                     localZoneCheck.add(combinedZoneKey);
-                    console.log("не найдено зоны", z.nam);
+                    //console.log("не найдено зоны", z.nam);
                     zoneRequests.push(() => odata.post("InformationRegister_усЗоныОтбора", {
                         Номенклатура_Key: nomK,
                         ТипЗоны: "ОтборМелкий",

@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bwip-js": "^4.11.4",
+    "canvas": "^3.2.3",
     "docx": "^9.7.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
@@ -17,6 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "minio": "^8.0.7",
     "multer": "^2.2.0",
-    "pg-promise": "^12.6.2"
+    "pg-promise": "^12.6.2",
+    "zpl-image": "^0.3.0"
   }
 }
