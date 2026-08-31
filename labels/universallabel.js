@@ -1,6 +1,5 @@
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const bwipjs = require('bwip-js');
-const rgbaToZ64 = require('zpl-image');
 const path = require('path');
 
 // === РЕГИСТРАЦИЯ КРОССПЛАТФОРМЕННЫХ ВЫТЯНУТЫХ ШРИФТОВ ===
@@ -17,6 +16,7 @@ class UniversalLabel {
     this.widthMm = widthMm;
     this.heightMm = heightMm;
     this.dpi = dpi;
+    this.blackThreshold=150;
 
     // Фактор перевода мм в пиксели
     this.scaleFactor = dpi / 25.4;
@@ -32,7 +32,7 @@ class UniversalLabel {
   // Настройка контекста холста: отсекаем полутона и размытие
   _initCanvas() {
     this.ctx.imageSmoothingEnabled = false;
-    this.ctx.antialias = 'none';
+    //this.ctx.antialias = 'none';
     this.ctx.textDrawingMode = 'path';
 
     // Заливаем холст чистым белым цветом
@@ -411,41 +411,89 @@ class UniversalLabel {
    * @returns {Buffer} Пиксель-перфект монохромный PNG буфер
    */
   toPNG() {
+    // 1. Создаем изолированный временный холст таких же размеров
+    const tempCanvas = createCanvas(this.pixelWidth, this.pixelHeight);
+    const tempCtx = tempCanvas.getContext('2d');
+
+    // Выключаем сглаживание для временного контекста
+    tempCtx.imageSmoothingEnabled = false;
+
+    // 2. Получаем копию пикселей с основного холста
     const ctx = this.canvas.getContext('2d');
     const imgData = ctx.getImageData(0, 0, this.pixelWidth, this.pixelHeight);
     const data = imgData.data;
 
+    // 3. Алгоритм бинаризации по порогу яркости
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
+      const a = data[i + 3];
 
-      const brightness = (r + g + b) / 3;
-      const color = brightness > 240 ? 255 : 0;
+      // Учитываем альфа-канал: если пиксель прозрачный, делаем его белым
+      const brightness = a < 128 ? 255 : (r + g + b) / 3;
+      const color = brightness > this.blackThreshold ? 255 : 0;
 
-      data[i] = color;
-      data[i + 1] = color;
-      data[i + 2] = color;
+      data[i] = color;       // R
+      data[i + 1] = color;   // G
+      data[i + 2] = color;   // B
+      data[i + 3] = 255;     // Альфа: делаем PNG полностью непрозрачным (ч/б)
     }
 
-    ctx.putImageData(imgData, 0, 0);
-    return this.canvas.toBuffer('image/png');
+    // 4. Записываем измененные пиксели на ВРЕМЕННЫЙ холст и экспортируем буфер
+    tempCtx.putImageData(imgData, 0, 0);
+    return tempCanvas.toBuffer('image/png');
   }
 
-  /** Генерирует универсальный ZPL-код */
+  /**
+   * Генерирует универсальный ZPL-код БЕЗ использования внешних библиотек (zpl-image).
+   * Графика конвертируется в чистый HEX-формат, понятный любому Zebra-принтеру.
+   */
   toZPL(copies = 1, useCutter = false, rotate90 = false) {
     const sourceCanvas = rotate90 ? this._getRotatedCanvas() : this.canvas;
-    const width = rotate90 ? this.pixelHeight : this.pixelWidth;
-    const height = rotate90 ? this.pixelWidth : this.pixelHeight;
+    const widthPx = rotate90 ? this.pixelHeight : this.pixelWidth;
+    const heightPx = rotate90 ? this.pixelWidth : this.pixelHeight;
 
-    const pixelBuffer = sourceCanvas.toBuffer('raw');
-    const z64 = rgbaToZ64(pixelBuffer, width, height);
+    const ctx = sourceCanvas.getContext('2d');
+    const imgData = ctx.getImageData(0, 0, widthPx, heightPx).data;
 
+    // В ZPL каждая строка дополняется до целого байта (кратно 8 пикселям)
+    const rowBytes = Math.ceil(widthPx / 8);
+    const totalBytes = rowBytes * heightPx;
+
+    // Создаем буфер для бинарного ч/б изображения (1 бит на пиксель)
+    const zplBuffer = Buffer.alloc(totalBytes);
+
+    for (let y = 0; y < heightPx; y++) {
+      for (let x = 0; x < widthPx; x++) {
+        const idx = (y * widthPx + x) * 4;
+        const r = imgData[idx];
+        const g = imgData[idx + 1];
+        const b = imgData[idx + 2];
+        const a = imgData[idx + 3];
+
+        // Учитываем альфа-канал: если пиксель прозрачный (a < 128), считаем его белым (255)
+        const brightness = a < 128 ? 255 : (r + g + b) / 3;
+        const isBlack = brightness <= this.blackThreshold;
+
+        if (isBlack) {
+          const byteIdx = y * rowBytes + Math.floor(x / 8);
+          const bitIdx = 7 - (x % 8);
+          // В ZPL: 1 — черный пиксель, 0 — белый
+          zplBuffer[byteIdx] |= (1 << bitIdx);
+        }
+      }
+    }
+
+    // Переводим буфер в HEX-строку в ВЕРХНЕМ регистре (важно для старых моделей Zebra)
+    const hexData = zplBuffer.toString('hex').toUpperCase();
+
+    // Формируем ZPL-пакет с командой ^GF (Graphic Field) в режиме ASCII-HEX (параметр ,A,)
     return `^XA\n` +
       `^CI28\n` +
       (useCutter ? `^MMC\n` : `^MMT\n`) +
       `^FO0,0\n` +
-      `^GFA,${z64.length},${z64.length},${z64.rowBytes},${z64.code}^FS\n` +
+      `^GFA,${totalBytes},${totalBytes},${rowBytes},${hexData}^FS\n` +
       `^PQ${copies},0,1,${useCutter ? 'Y' : 'N'}\n` +
       `^XZ`;
   }
@@ -475,7 +523,7 @@ class UniversalLabel {
         const a = imgData[idx + 3];
 
         const brightness = a < 128 ? 255 : (r + g + b) / 3;
-        const isBlack = brightness <= 240;
+        const isBlack = brightness <= this.blackThreshold;
 
         if (isBlack) {
           const byteIdx = y * tsplWidthBytes + Math.floor(x / 8);

@@ -35,7 +35,8 @@ module.exports = function (app) {
             label.block("Арт.43567",86,6.5,17,5,5,0,'center',true,'center');
             
             label.line(105,10,144,10);
-            //label.block("Э50А-УОНИ-13/55-5,0-УД");
+            label.block("Э50А-УОНИ-13/55-5,0-УД",105,5,39,4,4,0,'center',true,'center');
+            label.block("Е 516-Б20",105,10,39,4,4,0,'center',true,'center');
 
             const desc = `Для сварки ответственных конструкций из углеродистых и низколегированных сталей, в том числе работающих при знакопеременных нагрузках и отрицательных температурах.`;
             label.block(desc,35,16,82,16,3);
@@ -44,10 +45,13 @@ module.exports = function (app) {
 
             const appText = `Сертификация:\nГОСТ Р\nАттестация:\nНАКС\nОдобрено:\nРКО категория 3YH`;
             label.block(appText,120,17,24,21);
+
+            label.block('Диам.,\nмм',22,35,9,9,3,0,'center');
             
             await label.barcode(barcodeValue, 6, 8, 13, 'ean13', 'L', 1.125, true);
 
             await label.barcode("4627120435671e67785__1891-2026", 105, 36, 11, 'datamatrix', 'N', 1.125, true);
+
 
             const imagePosPath = path.join(__dirname, '../../../../public/pos-5.png');
             await label.image(imagePosPath,22,19.5,11,11);

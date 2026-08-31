@@ -19,7 +19,6 @@
     "jsonwebtoken": "^9.0.3",
     "minio": "^8.0.7",
     "multer": "^2.2.0",
-    "pg-promise": "^12.6.2",
-    "zpl-image": "^0.3.0"
+    "pg-promise": "^12.6.2"
   }
 }
