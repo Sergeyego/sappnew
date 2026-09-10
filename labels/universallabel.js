@@ -16,7 +16,7 @@ class UniversalLabel {
     this.widthMm = widthMm;
     this.heightMm = heightMm;
     this.dpi = dpi;
-    this.blackThreshold=150;
+    this.blackThreshold=128;
 
     // Фактор перевода мм в пиксели
     this.scaleFactor = dpi / 25.4;
