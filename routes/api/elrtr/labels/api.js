@@ -3,7 +3,7 @@ const creator = require('../../../../labels/universallabel.js');
 const db = require('../../../../postgres.js');
 const locale = require('../../../../locale.js');
 
-// Функция формирует строку сертификатов и категорий
+// Функция формирует строку аттестаций и категорий
 async function getSrtStr(id_part) {
     let srtStr = "";
     const srt = new Map();
@@ -117,7 +117,7 @@ let createLabel = async function (id_lbl, id_part, dpi = 203, checkOk = false) {
         getSrtStr(id_part),
         db.oneOrNone(queryPart, [id_part]),
         db.any(queryTu, [id_part]),
-        db.any(queryAmp, [id_part]), 
+        db.any(queryAmp, [id_part]),
         db.oneOrNone(queryAdr)
     ]);
 
@@ -171,7 +171,7 @@ let createLabel = async function (id_lbl, id_part, dpi = 203, checkOk = false) {
             errMsg += "Обратитесь к начальнику ОТК.";
         }
         const error = new Error(errMsg);
-        error.statusCode = 400; 
+        error.statusCode = 400;
         throw error;
     }
 
@@ -221,7 +221,7 @@ let createLabel = async function (id_lbl, id_part, dpi = 203, checkOk = false) {
     const mass = (id_lbl === 1) ? locale.insNumber(dataPart.mass_ed) : locale.insNumber(dataPart.mass_group);
     label.block(`Диаметр, мм - ${locale.insNumber(dataPart.diam, 1)}\nПартия - ${dataPart.n_s}\nМасса нетто, кг - ${mass}\nДата изг. - ${locale.insDate(dataPart.dat_part)}`, 69, 35, 35, 13, 3);
 
-    label.block(srtStr, 120, 17, 24, 21);
+    label.block(srtStr, 120, 17, 24, 21, 3);
 
     label.block('Диам.,\nмм', 22, 35, 10, 9, 3, 0, 'center');
     label.block('Рекомендуемое значение тока, А', 34, 34.4, 33, 3, 3, 0, 'center');
@@ -256,6 +256,43 @@ let createLabel = async function (id_lbl, id_part, dpi = 203, checkOk = false) {
 };
 
 module.exports = function (app) {
+
+    // Роут для получения списка доступных этикеток
+    app.get("/elrtr/labels/list", (req, res) => {
+        try {
+            const labelsList = [
+                {
+                    id: 1,
+                    name: "Этикетка 60x150 пачка",
+                    length: 150,
+                    width: 60,
+                    gap: 2,
+                    rotated: true
+                },
+                {
+                    id: 2,
+                    name: "Этикетка 60x150 гофрокороб",
+                    length: 150,
+                    width: 60,
+                    gap: 2,
+                    rotated: true // Развернута на 90 градусов
+                }
+            ];
+
+            // Отключаем HTTP-кэширование
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+
+            // Отправляем JSON-ответ
+            res.status(200).json(labelsList);
+
+        } catch (error) {
+            console.error("List Labels Error:", error.message);
+            res.status(500).type('text/plain; charset=utf-8').send("Ошибка при получении списка этикеток");
+        }
+    });
+
     app.get("/elrtr/labels/get/:id_lbl/:id_part", async (req, res) => {
         try {
             // Флаг checkOk (проверка ОТК) берется из query-параметров. Пример: ?checkOk=false
@@ -277,14 +314,14 @@ module.exports = function (app) {
             res.send(pngBuffer);
 
         } catch (error) {
-            console.error("Label Error:", error.message);
-            
+            //console.error("Label Error:", error.message);
+
             // Если выставлен кастомный statusCode (400 или 404), отдаем его, иначе 500 (ошибка сервера)
             const statusCode = error.statusCode || 500;
-            
+
             res.status(statusCode)
-               .type('text/plain; charset=utf-8')
-               .send(error.message);
+                .type('text/plain; charset=utf-8')
+                .send(error.message);
         }
     });
 };
