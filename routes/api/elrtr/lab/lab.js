@@ -142,8 +142,68 @@ module.exports = function (app) {
         }
     });
 
+    app.use("/elrtr/lab/chem/sert", bodyParser.json(), async (req, res) => {
+        const tableName = "el_sert_chem";
+        try {
+            let data = await autorest.getData(tableName, req);
+            if (data.length) {
+                const id_part = Number(data[0].id_part.edit_role);
+                //console.log(id_part);
+                if (id_part > 0) {
+                    const mapStat = await getChemTu(id_part);
+                    const tbl = await autorest.getTblInfo(tableName);
+                    const col = tbl.columns;
+                    for (let i = 0; i < data.length; i++) {
+                        col.forEach(function (cl) {
+                            if (mapStat.has(data[i].id_chem.edit_role)) {
+                                const tu = mapStat.get(data[i].id_chem.edit_role);
+                                const val = Number(data[i].kvo.edit_role);
+                                const ch = checkVal(tu, val);
+                                data[i][cl.nam].background_role = ch.color;
+                                data[i][cl.nam].tooltip_role = data[i].id_chem.display_role+ch.inf;
+                            }
+                        })
+                    }
+                }
+            }
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
     app.use("/elrtr/lab/mech/parti", bodyParser.json(), async (req, res) => {
         const tableName = "el_parti_mech";
+        try {
+            let data = await autorest.getData(tableName, req);
+            if (data.length) {
+                const id_part = Number(data[0].id_part.edit_role);
+                //console.log(id_part);
+                if (id_part > 0) {
+                    const mapStat = await getMechTu(id_part);
+                    const tbl = await autorest.getTblInfo(tableName);
+                    const col = tbl.columns;
+                    for (let i = 0; i < data.length; i++) {
+                        col.forEach(function (cl) {
+                            if (mapStat.has(data[i].id_mech.edit_role)) {
+                                const tu = mapStat.get(data[i].id_mech.edit_role);
+                                const val = Number(data[i].kvo.edit_role);
+                                const ch = checkVal(tu, val);
+                                data[i][cl.nam].background_role = ch.color;
+                                data[i][cl.nam].tooltip_role = data[i].id_mech.display_role+ch.inf;
+                            }
+                        })
+                    }
+                }
+            }
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.use("/elrtr/lab/mech/sert", bodyParser.json(), async (req, res) => {
+        const tableName = "el_sert_mech";
         try {
             let data = await autorest.getData(tableName, req);
             if (data.length) {

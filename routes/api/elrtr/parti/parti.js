@@ -1,5 +1,8 @@
 const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
+const sql = require('../../../../sql.js');
+
+const queryTu = sql('routes/api/elrtr/parti/tu.sql');
 
 let getPartState = async function (filter, param) {
     const query = `select p.id as id, ( 
@@ -54,6 +57,45 @@ module.exports = function (app) {
                 "from parti p " +
                 "where p.dat_part >= (CURRENT_DATE-365) and p.id_el = $1 and p.diam = $2 " +
                 "group by p.id_pack, p.id_long, p.id_var order by stat desc", [Number(req.params["id_el"]), Number(req.params["diam"])]);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/parti/tu/:id_part", async (req, res) => {
+        try {
+            const data = await autorest.getRoData("Нормативная документация",queryTu,[Number(req.params["id_part"])],["Наименование"]);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/parti/note/:id_part", async (req, res) => {
+        try {
+            const query = `select p.prim, p.prim_prod, p.ok from parti as p where p.id = $1`;
+            const data = await autorest.getRoData("Примечания",query,[Number(req.params["id_part"])]);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/parti/ship/:id_part", async (req, res) => {
+        try {
+            const query = `select o.id as id, s.nom_s as num, s.dat_vid as dat, 
+                p.short as buyer, o.massa as kvo, rp.short as buyer_real, o.ds_status as ds
+                from otpusk as o 
+                inner join sertifikat as s on o.id_sert=s.id 
+                inner join poluch as p on s.id_pol=p.id 
+                inner join poluch as rp on o.id_pol=rp.id 
+                where o.id_part = $1 order by s.dat_vid, s.nom_s`;
+            const header = ["id", "Номер", "Дата", "Получатель", "К-во, кг", "Реальный получатель", "Подп."];
+            const param = {
+                id: { "width": -1 },
+            };
+            const data = await autorest.getRoData("Отгрузки партии",query,[Number(req.params["id_part"])],header,1,param);
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);

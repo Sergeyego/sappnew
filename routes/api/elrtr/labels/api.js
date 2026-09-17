@@ -2,6 +2,9 @@ const path = require('path');
 const creator = require('../../../../labels/universallabel.js');
 const db = require('../../../../postgres.js');
 const locale = require('../../../../locale.js');
+const sql = require('../../../../sql.js');
+
+const queryTu = sql('routes/api/elrtr/parti/tu.sql');
 
 // Функция формирует строку аттестаций и категорий
 async function getSrtStr(id_part) {
@@ -98,11 +101,6 @@ let createLabel = async function (id_lbl, id_part, dpi = 203, checkOk = false) {
         inner join purpose as pu on e.id_purpose=pu.id 
         left join ean_el ee on ee.id_el = p.id_el and ee.id_diam = (select d.id from diam d where d.diam=p.diam) and ee.id_pack = p.id_pack 
         where p.id = $1`;
-
-    const queryTu = `select nam from zvd_get_tu_var((select dat_part from parti where id = $1 ), 
-        (select id_el from parti where id = $1 ), 
-        (select d.id from diam as d where d.diam = (select diam from parti where id = $1 )), 
-        (select id_var from parti where id = $1 ) ) `;
 
     const queryAmp = `select d.diam, a.bot, a.vert, a.ceil 
         from amp as a 
