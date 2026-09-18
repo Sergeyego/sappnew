@@ -1,6 +1,7 @@
 const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 const sql = require('../../../../sql.js');
+var bodyParser = require('body-parser');
 
 const queryTu = sql('routes/api/elrtr/parti/tu.sql');
 
@@ -65,7 +66,7 @@ module.exports = function (app) {
 
     app.get("/elrtr/parti/tu/:id_part", async (req, res) => {
         try {
-            const data = await autorest.getRoData("Нормативная документация",queryTu,[Number(req.params["id_part"])],["Наименование"]);
+            const data = await autorest.getRoData("Нормативная документация", queryTu, [Number(req.params["id_part"])], ["Наименование"]);
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
@@ -75,9 +76,61 @@ module.exports = function (app) {
     app.get("/elrtr/parti/note/:id_part", async (req, res) => {
         try {
             const query = `select p.prim, p.prim_prod, p.ok from parti as p where p.id = $1`;
-            const data = await autorest.getRoData("Примечания",query,[Number(req.params["id_part"])]);
+            const data = await autorest.getRoData("Примечания", query, [Number(req.params["id_part"])]);
             res.json(data);
         } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.patch("/elrtr/parti/patch/:id_part", bodyParser.json(), async (req, res) => {
+        try {
+            const allowedFields = ['ok', 'prim', 'prim_prod'];
+
+            let setParts = [];
+            let returningFields = ['id']; // ID возвращаем всегда, чтобы фронтенд знал, какая строка обновилась
+            let params = [req.params.id_part]; // \$1 — это всегда id_part
+            let paramIndex = 2; // Переменные для SET начинаются с \$2
+
+            // Обходим разрешенные поля
+            allowedFields.forEach(field => {
+                if (req.body[field] !== undefined) {
+                    // Добавляем поле в блок SET
+                    setParts.push(`${field} = $${paramIndex}`);
+                    // Добавляем поле в блок RETURNING
+                    returningFields.push(field);
+                    // Записываем значение параметра
+                    params.push(req.body[field]);
+                    paramIndex++;
+                }
+            });
+
+            // Если клиент не передал ни одного разрешенного поля
+            if (setParts.length === 0) {
+                return res.status(400).type('text/plain').send('Нет данных для обновления или поля недопустимы');
+            }
+
+            // Выполняем обновление в транзакции
+            const data = await db.tx(async t => {
+                // Контекст для триггеров
+                await autorest.setSqlContext(t, req);
+
+                // Собираем SQL-запрос с динамическим SET и динамическим RETURNING
+                const query = `UPDATE parti SET ${setParts.join(', ')} WHERE id = $1 RETURNING ${returningFields.join(', ')};`;
+
+                return await t.oneOrNone(query, params);
+            });
+
+            // Если запись не найдена в БД
+            if (!data) {
+                return res.status(404).type('text/plain').send('Партия с указанным ID не найдена');
+            }
+
+            // Клиент получит объект, содержащий только id и измененные им поля
+            res.json(data);
+
+        } catch (error) {
+            console.error("Ошибка при обновлении примечаний партии:", error);
             res.status(500).type('text/plain').send(error.message);
         }
     });
@@ -95,8 +148,75 @@ module.exports = function (app) {
             const param = {
                 id: { "width": -1 },
             };
-            const data = await autorest.getRoData("Отгрузки партии",query,[Number(req.params["id_part"])],header,1,param);
+            const data = await autorest.getRoData("Отгрузки партии", query, [Number(req.params["id_part"])], header, 1, param);
             res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.post("/elrtr/parti/genchem/:id_part", async (req, res) => {
+        try {
+            const id_part = Number(req.params["id_part"]);
+            const data = await db.tx(async t => {
+                await autorest.setSqlContext(t, req);
+                return await t.oneOrNone(`select * from gen_chem($1)`, [id_part]);
+            });
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.post("/elrtr/parti/genmech/:id_part", async (req, res) => {
+        try {
+            const id_part = Number(req.params["id_part"]);
+            const data = await db.tx(async t => {
+                await autorest.setSqlContext(t, req);
+                return await t.oneOrNone(`select * from gen_mech($1)`, [id_part]);
+            });
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/parti/color/:id_part", async (req, res) => {
+        try {
+            const id_part = Number(req.params["id_part"]);
+            const filter = "where p.id = ${id}";
+            const fltObj = {
+                id: id_part
+            };
+
+            const mapStat = await getPartState(filter, fltObj);
+            const color = mapStat.get(id_part) || "#FFFFFF";
+
+            res.json({id: id_part, color: color});
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/parti/perepacklist/:id_part", async (req, res) => {
+        try {
+            const query = `select pp.id_part as id, p.n_s as n_s, p.dat_part as dat_part, e.marka||' ф '||cast(p.diam as varchar(3)) as marka 
+                  from parti_perepack pp 
+                  inner join parti p on p.id = pp.id_part 
+                  inner join elrtr e on e.id = p.id_el 
+                  where pp.id_new_part = $1`;
+            
+            const header = ["id", "Партия", "Дата", "Марка"];
+            const param = {
+                id: { "width": -1 },
+                n_s: { "width": 55 },
+                dat_part: { "width": 85 },
+                marka: { "width": 165 }
+            };
+
+            const data = await autorest.getRoData("Партии электродов", query, [Number(req.params["id_part"])], header, 1, param);
+            res.json(data);
+            
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
         }

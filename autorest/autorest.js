@@ -309,38 +309,49 @@ let deleteDb = async function (tbl, pks, ctx = db) {
     return ret;
 }
 
-let getData = async function (tname, req) {
-    //console.log(req.method, tname);
-    let data = {};
-    const tbl = await getTblInfo(tname);
-    
-    // Получаем текущего пользователя и его реальный IP-адрес
+/**
+ * Устанавливает контекст текущего пользователя и IP в сессии PostgreSQL.
+ * @param {Object} t - Объект транзакции pg-promise
+ * @param {Object} req - Объект запроса Express
+ */
+const setSqlContext = async (t, req) => {
+    // Безопасное извлечение данных из req
     const currentUser = req.user ? req.user.username : (req.body?.username || 'anonymous');
     const currentIp = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
 
-    if (req.method == "GET") {
-        // Обычное чтение без транзакций
+    // Используем set_config для безопасной параметризации
+    await t.any(
+        "SELECT set_config('app.logged_user', $1, true), set_config('app.current_ip', $2, true);", 
+        [currentUser, currentIp]
+    );
+};
+
+let getData = async function (tname, req) {
+    let data = {};
+    const tbl = await getTblInfo(tname);
+
+    if (req.method === "GET") {
         data = await selectDb(tbl, req.query.filter);
     } 
-    else if (req.method == "POST") {
-        // Транзакция для INSERT
+    else if (req.method === "POST") {
         data = await db.tx(async t => {
-            await t.none("SET LOCAL app.logged_user = $1; SET LOCAL app.current_ip = $2;", [currentUser, currentIp]);
+            await setSqlContext(t, req); // Передаем транзакцию и запрос
             const pks = await insertDb(tbl, req.body, t);
             return await selectDb(tbl, getFltStr(tbl, pks), pks, t);
         });
     } 
-    else if (req.method == "PUT") {
-        // Транзакция для UPDATE
+    else if (req.method === "PUT") {
         data = await db.tx(async t => {
-            await t.none("SET LOCAL app.logged_user = $1; SET LOCAL app.current_ip = $2;", [currentUser, currentIp]);
+            await setSqlContext(t, req); // Передаем транзакцию и запрос
             const pks = await updateDb(tbl, req.body, t);
             return await selectDb(tbl, getFltStr(tbl, pks), pks, t);
         });
     } 
-    else if (req.method == "DELETE") {
-        // Обычное удаление без транзакции и без логирования
-        await deleteDb(tbl, req.query);
+    else if (req.method === "DELETE") {
+        data = await db.tx(async t => {
+            await setSqlContext(t, req); // Передаем транзакцию и запрос
+            return await deleteDb(tbl, req.query, t);
+        });
     }
     
     return data;
@@ -419,5 +430,6 @@ module.exports = {
     updData,
     getDisplay,
     getTblInfo,
-    getRelInfo
+    getRelInfo,
+    setSqlContext
 };
