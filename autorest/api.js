@@ -32,7 +32,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/autorest/tables/:tablename", bodyParser.json(), async (req, res) => {
+    app.use("/autorest/tables/:tablename", autorest.parseFilterMiddleware(), bodyParser.json(), async (req, res) => {
         try {
             const data = await autorest.getData(req.params["tablename"], req);
             res.json(data);

@@ -63,7 +63,7 @@ let checkVal = function (tu, val) {
 }
 
 module.exports = function (app) {
-    app.use("/elrtr/lab/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/parti", autorest.parseFilterMiddleware("el_parti"), bodyParser.json(), async (req, res) => {
         const tableName = "el_parti";
         try {
             let data = await autorest.getData(tableName, req);
@@ -112,7 +112,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/lab/chem/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/chem/parti", autorest.parseFilterMiddleware("el_parti_chem"), bodyParser.json(), async (req, res) => {
         const tableName = "el_parti_chem";
         try {
             let data = await autorest.getData(tableName, req);
@@ -142,7 +142,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/lab/chem/sert", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/chem/sert", autorest.parseFilterMiddleware("el_sert_chem"), bodyParser.json(), async (req, res) => {
         const tableName = "el_sert_chem";
         try {
             let data = await autorest.getData(tableName, req);
@@ -172,7 +172,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/lab/mech/parti", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/mech/parti", autorest.parseFilterMiddleware("el_parti_mech"), bodyParser.json(), async (req, res) => {
         const tableName = "el_parti_mech";
         try {
             let data = await autorest.getData(tableName, req);
@@ -202,7 +202,7 @@ module.exports = function (app) {
         }
     });
 
-    app.use("/elrtr/lab/mech/sert", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/lab/mech/sert", autorest.parseFilterMiddleware("el_sert_mech"), bodyParser.json(), async (req, res) => {
         const tableName = "el_sert_mech";
         try {
             let data = await autorest.getData(tableName, req);

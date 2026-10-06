@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const ExcelJS = require('exceljs');
 
 module.exports = function (app) {
-    app.use("/elrtr/dosage/rcp", bodyParser.json(), async (req, res) => {
+    app.use("/elrtr/dosage/rcp", autorest.parseFilterMiddleware("rcp_nam"), bodyParser.json(), async (req, res) => {
         const tableName = "rcp_nam";
         try {
             const data = await autorest.getData(tableName, req);
