@@ -95,7 +95,7 @@ const getFltStr = function (tbl, obj) {
     return flt;
 };
 
-//Ужесточенный, безопасный список примитивов. Исключает undefined и null.
+//Список примитивов. Исключает undefined и null.
 const isStrictPrimitive = (val) => {
     return typeof val === 'string' ||
         typeof val === 'number' ||
@@ -125,7 +125,7 @@ const buildTreeFilter = function (rootNode, allowedColumnsSet, maxDepth = 5) {
         const { tablename, field, op, value } = node;
         if (!tablename || !field || !op) return "";
 
-        // Раздел 2: Истинный Fail-Closed. Убран "size > 0". Любой пустой whitelist теперь наглухо блокирует запрос.
+        // Истинный Fail-Closed. Любой пустой whitelist наглухо блокирует запрос.
         const currentKey = `${tablename}.${field}`;
         if (!allowedColumnsSet.has(currentKey)) {
             throw new Error(`Доступ к колонке "${tablename}"."${field}" запрещен или её не существует в разрешенной схеме эндпоинта`);
@@ -179,7 +179,7 @@ const buildTreeFilter = function (rootNode, allowedColumnsSet, maxDepth = 5) {
                 if (!Array.isArray(value) || value.length === 0) {
                     throw new Error(`Оператор "${opClean.toUpperCase()}" для поля "${field}" требует непустой массив значений`);
                 }
-                // Замечание 3.5: Проверяем элементы внутри IN массива
+                // Проверяем элементы внутри IN массива
                 if (value.some(val => !isStrictPrimitive(val))) {
                     throw new Error(`Оператор "${opClean.toUpperCase()}" для поля "${field}" содержит недопустимые типы данных (null/объекты)`);
                 }
@@ -192,6 +192,7 @@ const buildTreeFilter = function (rootNode, allowedColumnsSet, maxDepth = 5) {
     };
 
     const sqlResult = parseNode(rootNode, 0);
+    //console.log(sqlResult,queryParams);
     return { sql: sqlResult, params: queryParams };
 };
 
@@ -259,9 +260,11 @@ const parseFilterMiddleware = (options) => {
                 .map(async (cl) => {
                     try {
                         const rel = await getRelInfo(cl.relnam);
-                        const joinedTbl = await getTblInfo(rel.tablename); 
-                        if (joinedTbl && Array.isArray(joinedTbl.columns)) {
-                            joinedTbl.columns.forEach(jc => validFieldsSet.add(`${cl.relnam}.${jc.col}`));
+                        if (!locale.isEmptyStr(rel.editor)){
+                            const joinedTbl = await getTblInfo(rel.editor); 
+                            if (joinedTbl && Array.isArray(joinedTbl.columns)) {
+                                joinedTbl.columns.forEach(jc => validFieldsSet.add(`${cl.relnam}.${jc.col}`));
+                            }
                         }
                     } catch (e) {}
                 });
@@ -432,7 +435,7 @@ let deleteDb = async function (tbl, pks, ctx = db) {
 
             // Блокируем тихую подстановку NULL или падение драйвера при пустом или отсутствующем PK
             if (rawVal === undefined || rawVal === null || (Array.isArray(rawVal) && rawVal.length === 0)) {
-                throw new Error(`Критическая уязвимость: не указан или пуст первичный ключ "${cl.nam}" для операции DELETE`);
+                throw new Error(`Не указан или пуст первичный ключ "${cl.nam}" для операции DELETE`);
             }
 
             cleanPks[cl.nam] = Array.isArray(rawVal) ? rawVal[0] : rawVal;
