@@ -68,6 +68,9 @@ module.exports = function (app) {
         try {
             let data = await autorest.getData(tableName, req);
             if (req.method != "DELETE") {
+
+                const { sql, params } = req.parsedFilter || { sql: "", params: {} };
+
                 let query = "select parti.id, " +
                     "(select case when exists(select id from parti_chem where id_part=parti.id) " +
                     "then 1 else 0 end " +
@@ -75,14 +78,14 @@ module.exports = function (app) {
                     "case when exists(select id from parti_mech where id_part=parti.id) " +
                     "then 2 else 0 end " +
                     "as r) from parti";
-                if ((req.method == "GET") && !locale.isEmptyStr(req.query.filter)) {
-                    query += " where " + req.query.filter;
+                if ((req.method == "GET") && !locale.isEmptyStr(sql)) {
+                    query += " where " + sql;
                 } else if ((req.method == "POST" || req.method == "PUT") && data.length) {
                     query += " where parti.id = " + data[0]["id"].edit_role;
                 } else {
                     query += " where parti.id = -1";
                 }
-                const state = await db.any(query);
+                const state = await db.any(query,params);
                 const mapStat = new Map();
                 for (let i = 0; i < state.length; i++) {
                     let color = "#FFFFFF";
