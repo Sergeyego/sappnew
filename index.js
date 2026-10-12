@@ -125,6 +125,21 @@ app.use((req, res, next) => {
     res.status(404).type('text/plain').send('Not found');
 })
 
+// Глобальный обработчик ошибок — ДОЛЖЕН идти последним,
+// и обязательно с четырьмя аргументами (err, req, res, next),
+// иначе Express не распознает его как error handler.
+app.use((err, req, res, next) => {
+    console.error(`[${req.method} ${req.url}]`, err.message);
+
+    // Заголовки уже отправлены — отдать управление стандартному обработчику
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    const status = err.status || err.statusCode || 500;
+    res.status(status).type('text/plain').send(err.message || 'Internal error');
+});
+
 /*app.listen(port, () => {
     console.log(`HTTP server running on port ${port}`);
 })*/

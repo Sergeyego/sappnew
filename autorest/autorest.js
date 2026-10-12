@@ -217,10 +217,8 @@ const parseFilterMiddleware = (options) => {
     return (req, res, next) => {
         req.parsedFilter = { sql: "", params: {} };
 
-        // Убрать в следующщем релизе! Старый фильтр оставлен для совместимости не обновленных клиентов.
         if (req.query && req.query.filter){
-            req.parsedFilter = { sql: req.query.filter, params: {} };
-            return next();
+            throw new Error("Фильтр не поддерживается. Используйте filterObj.");
         }
 
         if (!req.query || !req.query.filterobj) {
