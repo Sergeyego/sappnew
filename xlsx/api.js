@@ -107,8 +107,18 @@ module.exports = function (app) {
                         }
                         // Безопасное приведение к Date с защитой от Invalid Date
                         else if ((meta.id_type === 14 || meta.id_type === 16) && val) {
-                            const parsedDate = new Date(val);
-                            cell.value = isNaN(parsedDate.getTime()) ? null : parsedDate;
+                            // "2024-01-15" или "2024-01-15T14:30:00" — разбираем как строку и собираем через Date.UTC,
+                            // чтобы Excel получил ровно те компоненты, которые ввели в форме (без TZ-конвертаций).
+                            const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2}))?/);
+                            if (m) {
+                                const dt = new Date(Date.UTC(
+                                    Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+                                    Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0)
+                                ));
+                                cell.value = isNaN(dt.getTime()) ? null : dt;
+                            } else {
+                                cell.value = null;
+                            }
                         }
                     }
 
