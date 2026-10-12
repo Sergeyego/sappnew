@@ -42,6 +42,8 @@ module.exports = function (app) {
             const columns = [];
             const colMetaMap = []; // Массив для быстрого O(1) доступа к форматам во время прохода по строкам
 
+            const dataFont = { name: 'Arial', size: 10, bold: false };
+
             for (let j = 0; j < reqColumns.length; j++) {
                 const col = reqColumns[j];
                 const width = col.width / 7.0;
@@ -91,7 +93,7 @@ module.exports = function (app) {
                     const cell = row.getCell(meta.key);
 
                     if (rowNumber > 1) { // Если это строка данных
-                        cell.font = { name: 'Arial', size: 10, bold: false };
+                        cell.font = dataFont;
 
                         if (meta.numFmt) {
                             cell.numFmt = meta.numFmt;

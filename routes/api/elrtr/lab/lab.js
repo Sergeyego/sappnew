@@ -2,11 +2,15 @@ const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
 const locale = require('../../../../locale.js');
 var bodyParser = require('body-parser');
+const pgp = db.pgp;
 
-let getChemTu = async function(id_part){
-    let query = "select c.id_chem, c.min, c.max from chem_tu as c where " +
-        "c.id_el = (select p.id_el from parti as p where p.id = $1 ) " +
-        "and c.id_var = (select p.id_var from parti as p where p.id = $1 )";
+const getChemTu = async function (id_part) {
+    const query = `
+        SELECT c.id_chem, c.min, c.max 
+        FROM chem_tu AS c 
+        WHERE c.id_el = (SELECT p.id_el FROM parti AS p WHERE p.id = $1) 
+          AND c.id_var = (SELECT p.id_var FROM parti AS p WHERE p.id = $1)
+    `;
     const state = await db.any(query, [id_part]);
     const mapStat = new Map();
     for (let i = 0; i < state.length; i++) {
@@ -15,10 +19,13 @@ let getChemTu = async function(id_part){
     return mapStat;
 }
 
-let getMechTu = async function(id_part){
-    let query = "select m.id_mech, m.min, m.max from mech_tu as m where "+
-            "m.id_el = (select p.id_el from parti as p where p.id = $1 )"+
-            "and m.id_var = (select p.id_var from parti as p where p.id = $1 )";
+const getMechTu = async function (id_part) {
+    const query = `
+        SELECT m.id_mech, m.min, m.max 
+        FROM mech_tu AS m 
+        WHERE m.id_el = (SELECT p.id_el FROM parti AS p WHERE p.id = $1)
+          AND m.id_var = (SELECT p.id_var FROM parti AS p WHERE p.id = $1)
+    `;
     const state = await db.any(query, [id_part]);
     const mapStat = new Map();
     for (let i = 0; i < state.length; i++) {
@@ -27,39 +34,54 @@ let getMechTu = async function(id_part){
     return mapStat;
 }
 
-let checkVal = function (tu, val) {
-    let color = "#FFFFFF";
-    //console.log(val);
-    let inf = "";
-    if (tu.max == null && tu.min != null) {
-        inf += ": min " + tu.min;
-        if (val < tu.min) {
-            color = "#FFAAAA";
-        } else if (val > tu.min) {
-            color = "#AAFFAA";
-        } else {
-            color = "#FFFF00";
-        }
-    } else if (tu.min == null && tu.max != null) {
-        inf += ": max " + tu.max;
-        if (val > tu.max) {
-            color = "#FFAAAA";
-        } else if (val < tu.max) {
-            color = "#AAFFAA";
-        } else {
-            color = "#FFFF00";
-        }
-    } else {
-        inf += ": min " + tu.min + " max " + tu.max;
-        if (val < tu.min || val > tu.max) {
-            color = "#FFAAAA";
-        } else if (val > tu.min && val < tu.max) {
-            color = "#AAFFAA";
-        } else {
-            color = "#FFFF00";
+// Вспомогательная функция обхода и подкраски данных химии/механики
+const processTuColoring = async (data, tableName, getTuFn, idFieldMechOrChem) => {
+    if (!data || !data.length) return; // Защита от пустых ответов базы данных
+    
+    // Безопасное извлечение id_part из первой строки
+    const firstRowPart = data[0] && data[0].id_part ? data[0].id_part.edit_role : null;
+    const id_part = Number(firstRowPart);
+    
+    if (id_part > 0) {
+        const mapStat = await getTuFn(id_part);
+        const tbl = await autorest.getTblInfo(tableName);
+        const col = tbl.columns;
+        
+        for (let i = 0; i < data.length; i++) {
+            // Динамически получаем поле (id_chem или id_mech) в зависимости от контекста вызова
+            const targetField = data[i][idFieldMechOrChem];
+            
+            if (targetField && mapStat.has(targetField.edit_role)) {
+                const tu = mapStat.get(targetField.edit_role);
+                const val = Number(data[i].kvo ? data[i].kvo.edit_role : 0);
+                const ch = checkVal(tu, val);
+                
+                col.forEach(function (cl) {
+                    if (data[i][cl.nam]) {
+                        data[i][cl.nam].background_role = ch.color;
+                        data[i][cl.nam].tooltip_role = (targetField.display_role || '') + ch.inf;
+                    }
+                });
+            }
         }
     }
-    return {color: color, inf: inf};
+};
+
+const checkVal = function (tu, val) {
+    let color = "#FFFFFF";
+    let inf = "";
+
+    if (tu.max == null && tu.min != null) {
+        inf += ": min " + tu.min;
+        color = (val < tu.min) ? "#FFAAAA" : (val > tu.min ? "#AAFFAA" : "#FFFF00");
+    } else if (tu.min == null && tu.max != null) {
+        inf += ": max " + tu.max;
+        color = (val > tu.max) ? "#FFAAAA" : (val < tu.max ? "#AAFFAA" : "#FFFF00");
+    } else if (tu.min != null && tu.max != null) {
+        inf += ": min " + tu.min + " max " + tu.max;
+        color = (val < tu.min || val > tu.max) ? "#FFAAAA" : ((val > tu.min && val < tu.max) ? "#AAFFAA" : "#FFFF00");
+    }
+    return { color: color, inf: inf };
 }
 
 module.exports = function (app) {
@@ -67,46 +89,62 @@ module.exports = function (app) {
         const tableName = "el_parti";
         try {
             let data = await autorest.getData(tableName, req);
+
+            if (!data || data.length === 0) {
+                return res.json([]);
+            }
+
             if (req.method != "DELETE") {
-
                 const { sql, params } = req.parsedFilter || { sql: "", params: {} };
+                let queryParams = { ...params };
 
-                let query = "select parti.id, " +
-                    "(select case when exists(select id from parti_chem where id_part=parti.id) " +
-                    "then 1 else 0 end " +
-                    "+ " +
-                    "case when exists(select id from parti_mech where id_part=parti.id) " +
-                    "then 2 else 0 end " +
-                    "as r) from parti";
+                let query = `
+                    SELECT parti.id, 
+                    (SELECT CASE WHEN EXISTS(SELECT id FROM parti_chem WHERE id_part=parti.id) THEN 1 ELSE 0 END 
+                    + 
+                    CASE WHEN EXISTS(SELECT id FROM parti_mech WHERE id_part=parti.id) THEN 2 ELSE 0 END 
+                    AS r) FROM parti
+                `;
+
                 if ((req.method == "GET") && !locale.isEmptyStr(sql)) {
-                    query += " where " + sql;
-                } else if ((req.method == "POST" || req.method == "PUT") && data.length) {
-                    query += " where parti.id = " + data[0]["id"].edit_role;
+                    query += " WHERE " + sql;
+                } else if (req.method == "POST" || req.method == "PUT") {
+                    const targetId = data[0] && data[0]["id"] ? data[0]["id"].edit_role : null;
+                    if (targetId !== null) {
+                        query += " WHERE parti.id = ${custom_target_id}";
+                        queryParams.custom_target_id = targetId;
+                    } else {
+                        query += " WHERE parti.id = -1";
+                    }
                 } else {
-                    query += " where parti.id = -1";
+                    query += " WHERE parti.id = -1";
                 }
-                const state = await db.any(query,params);
+
+                const state = await db.any(query, queryParams);
                 const mapStat = new Map();
+
                 for (let i = 0; i < state.length; i++) {
                     let color = "#FFFFFF";
                     const r = state[i].r;
-                    if (r == 1) {
-                        color = "#FFAAAA";
-                    } else if (r == 2) {
-                        color = "#AAFFAA";
-                    } else if (r == 3) {
-                        color = "#FFFF00";
-                    }
+                    if (r == 1) color = "#FFAAAA";
+                    else if (r == 2) color = "#AAFFAA";
+                    else if (r == 3) color = "#FFFF00";
                     mapStat.set(state[i].id, color);
                 }
+
                 const tbl = await autorest.getTblInfo(tableName);
                 const col = tbl.columns;
+
                 for (let i = 0; i < data.length; i++) {
-                    col.forEach(function (cl) {
-                        if (mapStat.has(data[i].id.edit_role)) {
-                            data[i][cl.nam].background_role = mapStat.get(data[i].id.edit_role);
-                        }
-                    })
+                    const currentId = data[i]["id"] ? data[i]["id"].edit_role : null;
+                    if (currentId && mapStat.has(currentId)) {
+                        const bg = mapStat.get(currentId);
+                        col.forEach(function (cl) {
+                            if (data[i][cl.nam]) {
+                                data[i][cl.nam].background_role = bg;
+                            }
+                        });
+                    }
                 }
             }
             res.json(data);
@@ -119,26 +157,7 @@ module.exports = function (app) {
         const tableName = "el_parti_chem";
         try {
             let data = await autorest.getData(tableName, req);
-            if (data.length) {
-                const id_part = Number(data[0].id_part.edit_role);
-                //console.log(id_part);
-                if (id_part > 0) {
-                    const mapStat = await getChemTu(id_part);
-                    const tbl = await autorest.getTblInfo(tableName);
-                    const col = tbl.columns;
-                    for (let i = 0; i < data.length; i++) {
-                        col.forEach(function (cl) {
-                            if (mapStat.has(data[i].id_chem.edit_role)) {
-                                const tu = mapStat.get(data[i].id_chem.edit_role);
-                                const val = Number(data[i].kvo.edit_role);
-                                const ch = checkVal(tu, val);
-                                data[i][cl.nam].background_role = ch.color;
-                                data[i][cl.nam].tooltip_role = data[i].id_chem.display_role+ch.inf;
-                            }
-                        })
-                    }
-                }
-            }
+            await processTuColoring(data, tableName, getChemTu, "id_chem");
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
@@ -149,26 +168,7 @@ module.exports = function (app) {
         const tableName = "el_sert_chem";
         try {
             let data = await autorest.getData(tableName, req);
-            if (data.length) {
-                const id_part = Number(data[0].id_part.edit_role);
-                //console.log(id_part);
-                if (id_part > 0) {
-                    const mapStat = await getChemTu(id_part);
-                    const tbl = await autorest.getTblInfo(tableName);
-                    const col = tbl.columns;
-                    for (let i = 0; i < data.length; i++) {
-                        col.forEach(function (cl) {
-                            if (mapStat.has(data[i].id_chem.edit_role)) {
-                                const tu = mapStat.get(data[i].id_chem.edit_role);
-                                const val = Number(data[i].kvo.edit_role);
-                                const ch = checkVal(tu, val);
-                                data[i][cl.nam].background_role = ch.color;
-                                data[i][cl.nam].tooltip_role = data[i].id_chem.display_role+ch.inf;
-                            }
-                        })
-                    }
-                }
-            }
+            await processTuColoring(data, tableName, getChemTu, "id_chem");
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
@@ -179,26 +179,7 @@ module.exports = function (app) {
         const tableName = "el_parti_mech";
         try {
             let data = await autorest.getData(tableName, req);
-            if (data.length) {
-                const id_part = Number(data[0].id_part.edit_role);
-                //console.log(id_part);
-                if (id_part > 0) {
-                    const mapStat = await getMechTu(id_part);
-                    const tbl = await autorest.getTblInfo(tableName);
-                    const col = tbl.columns;
-                    for (let i = 0; i < data.length; i++) {
-                        col.forEach(function (cl) {
-                            if (mapStat.has(data[i].id_mech.edit_role)) {
-                                const tu = mapStat.get(data[i].id_mech.edit_role);
-                                const val = Number(data[i].kvo.edit_role);
-                                const ch = checkVal(tu, val);
-                                data[i][cl.nam].background_role = ch.color;
-                                data[i][cl.nam].tooltip_role = data[i].id_mech.display_role+ch.inf;
-                            }
-                        })
-                    }
-                }
-            }
+            await processTuColoring(data, tableName, getMechTu, "id_mech");
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
@@ -209,26 +190,7 @@ module.exports = function (app) {
         const tableName = "el_sert_mech";
         try {
             let data = await autorest.getData(tableName, req);
-            if (data.length) {
-                const id_part = Number(data[0].id_part.edit_role);
-                //console.log(id_part);
-                if (id_part > 0) {
-                    const mapStat = await getMechTu(id_part);
-                    const tbl = await autorest.getTblInfo(tableName);
-                    const col = tbl.columns;
-                    for (let i = 0; i < data.length; i++) {
-                        col.forEach(function (cl) {
-                            if (mapStat.has(data[i].id_mech.edit_role)) {
-                                const tu = mapStat.get(data[i].id_mech.edit_role);
-                                const val = Number(data[i].kvo.edit_role);
-                                const ch = checkVal(tu, val);
-                                data[i][cl.nam].background_role = ch.color;
-                                data[i][cl.nam].tooltip_role = data[i].id_mech.display_role+ch.inf;
-                            }
-                        })
-                    }
-                }
-            }
+            await processTuColoring(data, tableName, getMechTu, "id_mech");
             res.json(data);
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
@@ -238,26 +200,61 @@ module.exports = function (app) {
     app.post("/elrtr/lab/chem/load/:id_part/:id_dev", bodyParser.json(), async (req, res) => {
         const id_part = Number(req.params["id_part"]);
         const id_dev = Number(req.params["id_dev"]);
+
+        // Проверяем валидность пришедших ID перед началом транзакции
+        if (Number.isNaN(id_part) || Number.isNaN(id_dev)) {
+            return res.status(400).type('text/plain').send("Некорректные параметры id_part или id_dev");
+        }
+
         try {
-            let ids={};
-            const tuChem = await db.any("select c.id_chem as id, ct.sig as sig from chem_tu as c " +
-                "inner join chem_tbl ct on ct.id = c.id_chem " +
-                "where c.id_el = (select p.id_el from parti as p where p.id = $1 ) " +
-                "and c.id_var = (select p.id_var from parti as p where p.id = $1 )", [id_part]);
-            if (tuChem.length) {
-                var query = "insert into parti_chem (id_part, id_dev, id_chem, kvo) values ";
-                for (let i=0; i<tuChem.length; i++) {
-                    const kvo = Object.hasOwn(req.body, tuChem[i].sig) ? req.body[tuChem[i].sig] : 0.0;
-                    if (i!=0) {
-                        query += ", ";
-                    }
-                    query += "("+id_part+", "+id_dev+", "+tuChem[i].id+", "+kvo+ ")";
+            // Запускаем транзакцию через db.tx
+            const ids = await db.tx(async t => {
+                // 1. Устанавливаем SQL-контекст пользователя и IP внутри транзакции
+                await autorest.setSqlContext(t, req);
+
+                // 2. Получаем необходимые химические элементы (выполняем через объект транзакции 't')
+                const tuChem = await t.any(
+                    "select c.id_chem as id, ct.sig as sig from chem_tu as c " +
+                    "inner join chem_tbl ct on ct.id = c.id_chem " +
+                    "where c.id_el = (select p.id_el from parti as p where p.id = $1) " +
+                    "and c.id_var = (select p.id_var from parti as p where p.id = $1)",
+                    [id_part]
+                );
+
+                // Если ничего не нашли, возвращаем пустой массив
+                if (!tuChem.length) {
+                    return [];
                 }
-                query+=" returning id";
-                ids = await db.any(query);
-            }
+
+                // 3. Формируем массив объектов для безопасной множественной вставки
+                const insertRows = tuChem.map(chem => {
+                    const rawKvo = Object.hasOwn(req.body, chem.sig) ? req.body[chem.sig] : 0.0;
+                    // Принудительно приводим к числу, чтобы избежать записи строк/undefined в БД
+                    const kvo = Number.isNaN(Number(rawKvo)) ? 0.0 : Number(rawKvo);
+
+                    return {
+                        id_part: id_part,
+                        id_dev: id_dev,
+                        id_chem: chem.id,
+                        kvo: kvo
+                    };
+                });
+
+                // 4. Безопасно генерируем и выполняем множественный INSERT с помощью pg-promise helpers
+                // Это полностью защищает от SQL-инъекций и корректно экранирует данные
+                const cs = new pgp.helpers.ColumnSet(['id_part', 'id_dev', 'id_chem', 'kvo'], { table: 'parti_chem' });
+                const query = pgp.helpers.insert(insertRows, cs) + " RETURNING id";
+
+                // Выполняем вставку в рамках той же транзакции
+                return await t.any(query);
+            });
+
+            // Отправляем успешный результат клиенту
             res.json(ids);
+
         } catch (error) {
+            // Если транзакция упадет на любом этапе (включая setSqlContext), 
+            // pg-promise автоматически сделает ROLLBACK.
             res.status(500).type('text/plain').send(error.message);
         }
     });

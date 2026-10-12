@@ -5,7 +5,7 @@ var bodyParser = require('body-parser');
 
 const queryTu = sql('routes/api/elrtr/parti/tu.sql');
 
-let getPartState = async function (filter, param) {
+const getPartState = async function (filter, param) {
     const query = `select p.id as id, ( 
         (case when p.ok then 1 else 0 end) +
         (select case when exists(select id_chem from sert_chem where id_part=p.id) then 2 else 0 end ) +
@@ -93,14 +93,12 @@ module.exports = function (app) {
             let paramIndex = 2; // Переменные для SET начинаются с \$2
 
             // Обходим разрешенные поля
+            const body = req.body || {};
             allowedFields.forEach(field => {
-                if (req.body[field] !== undefined) {
-                    // Добавляем поле в блок SET
+                if (body[field] !== undefined) {
                     setParts.push(`${field} = $${paramIndex}`);
-                    // Добавляем поле в блок RETURNING
                     returningFields.push(field);
-                    // Записываем значение параметра
-                    params.push(req.body[field]);
+                    params.push(body[field]);
                     paramIndex++;
                 }
             });
@@ -192,7 +190,7 @@ module.exports = function (app) {
             const mapStat = await getPartState(filter, fltObj);
             const color = mapStat.get(id_part) || "#FFFFFF";
 
-            res.json({id: id_part, color: color});
+            res.json({ id: id_part, color: color });
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
         }
@@ -205,7 +203,7 @@ module.exports = function (app) {
                   inner join parti p on p.id = pp.id_part 
                   inner join elrtr e on e.id = p.id_el 
                   where pp.id_new_part = $1`;
-            
+
             const header = ["id", "Партия", "Дата", "Марка"];
             const param = {
                 id: { "width": -1 },
@@ -216,7 +214,7 @@ module.exports = function (app) {
 
             const data = await autorest.getRoData("Партии электродов", query, [Number(req.params["id_part"])], header, 1, param);
             res.json(data);
-            
+
         } catch (error) {
             res.status(500).type('text/plain').send(error.message);
         }
@@ -226,8 +224,8 @@ module.exports = function (app) {
         try {
             // Базовый объект параметров, который гарантированно заполнен
             const fltObj = {
-                d1: new Date(req.params["d1"]),
-                d2: new Date(req.params["d2"])
+                d1: req.params["d1"],
+                d2: req.params["d2"]
             };
 
             let filter = "where p.dat_part between ${d1} and ${d2} ";

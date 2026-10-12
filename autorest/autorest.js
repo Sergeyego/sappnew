@@ -217,6 +217,7 @@ const parseFilterMiddleware = (options) => {
     return (req, res, next) => {
         req.parsedFilter = { sql: "", params: {} };
 
+        // Убрать в следующщем релизе! Старый фильтр оставлен для совместимости не обновленных клиентов.
         if (req.query && req.query.filter){
             req.parsedFilter = { sql: req.query.filter, params: {} };
             return next();
@@ -317,6 +318,7 @@ const selectDb = async function (tbl, flt, params, ctx = db) {
     query += " FROM " + tbl.tablename + " " + joinstr;
     if (!locale.isEmptyStr(flt)) query += " WHERE " + flt;
     if (!locale.isEmptyStr(tbl.sort)) query += " ORDER BY " + tbl.sort;
+    if (locale.isEmptyStr(flt)) query += " LIMIT 1000";
 
     const data = await ctx.any(query, params);
     const obj = [];

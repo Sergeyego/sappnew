@@ -20,7 +20,7 @@ module.exports = function (app) {
             const d2 = new Date(req.params["d2"]);
 
             const title = "Отчет по цеху электродов с " + locale.insDate(d1) + " по " + locale.insDate(d2);
-            let data = await autorest.getRoData(title, query, [d1, d2], header, 1);
+            let data = await autorest.getRoData(title, query, [req.params["d1"], req.params["d2"]], header, 1);
             let sums = {};
             const col_sum = ["ostbeg", "pack", "thermo", "perepack", "perepackbreak", "arch", "isp", "selfn", "oth", "war", "warout", "ostend"];
             for (let n = 0; n < col_sum.length; n++) {
