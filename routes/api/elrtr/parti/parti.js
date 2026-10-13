@@ -179,6 +179,46 @@ module.exports = function (app) {
         }
     });
 
+    app.post("/elrtr/parti/importval/:id_part", bodyParser.json(), async (req, res) => {
+        try {
+            const id_part = Number(req.params.id_part);
+            const id_part_src = Number(req.body.id_part_src);
+
+            // Валидация: проверяем, что оба значения являются корректными числами
+            if (Number.isNaN(id_part) || Number.isNaN(id_part_src)) {
+                return res.status(400).type('text/plain').send("Ошибка валидации: id_part и id_part_src должны быть числами");
+            }
+
+            const queryChem = `
+                INSERT INTO sert_chem (id_part, id_chem, value) 
+                SELECT $1, id_chem, value FROM sert_chem WHERE id_part = $2`;
+            const queryMech = `
+                INSERT INTO sert_mech (id_part, id_mech, value) 
+                SELECT $1, id_mech, value FROM sert_mech WHERE id_part = $2`;
+            const queryMechx = `
+                INSERT INTO sert_mechx (id_part, id_mechx, id_value) 
+                SELECT $1, id_mechx, id_value FROM sert_mechx WHERE id_part = $2`;
+
+            const runInIsolatedTx = (query, params) => {
+                return db.tx(async t => {
+                    await autorest.setSqlContext(t, req);
+                    await t.none(query, params);
+                });
+            };
+
+            // Выполняем 3 транзакции параллельно. Падение любой из них вызовет ошибку 500
+            await Promise.all([
+                runInIsolatedTx(queryChem, [id_part, id_part_src]),
+                runInIsolatedTx(queryMech, [id_part, id_part_src]),
+                runInIsolatedTx(queryMechx, [id_part, id_part_src])
+            ]);
+
+            res.json({ success: true, message: "Все данные успешно импортированы" });
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
     app.get("/elrtr/parti/color/:id_part", async (req, res) => {
         try {
             const id_part = Number(req.params["id_part"]);
