@@ -14,6 +14,36 @@ function decodeBase64Url(base64url) {
     return Buffer.from(base64, 'base64');
 }
 
+function stripDuplicateIccp(png) {
+    const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    if (png.length < 8 || !png.slice(0, 8).equals(SIG)) return png;
+
+    const out = [SIG];
+    let offset = 8;
+    let seenIccp = false;
+
+    while (offset + 12 <= png.length) {
+        const length = png.readUInt32BE(offset);
+        const type = png.toString('ascii', offset + 4, offset + 8);
+        const total = 12 + length;
+
+        if (type === 'iCCP') {
+            if (seenIccp) {
+                offset += total;      // пропускаем дубликат
+                continue;
+            }
+            seenIccp = true;
+        }
+
+        out.push(png.slice(offset, offset + total));
+        offset += total;
+
+        if (type === 'IEND') break;
+    }
+
+    return Buffer.concat(out);
+}
+
 module.exports = function (app) {
     
     // Эндпоинт генерации QR-кода полностью через bwip-js

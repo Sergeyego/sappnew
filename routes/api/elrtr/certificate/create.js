@@ -1,7 +1,8 @@
 const srt = require('../../../../cert.js');
 const locale = require('../../../../locale.js');
-const data = require("./data.js");
+const data = require('./data.js');
 const qr = require('../../../../barcode.js');
+const path = require('path');
 
 function getMainTbl(lang, headerdata, id_type, tudata, intdata) {
     let symb = "";
@@ -82,20 +83,21 @@ function getMainTbl(lang, headerdata, id_type, tudata, intdata) {
 
 function getQrCode(lang, headerdata, id_type, is_ship) {
     if (id_type >= 6 && headerdata.id_ship != null) {
-        const url = `https://czcm-weld.ru/${headerdata.hash}/${headerdata.id_ship}-${lang}.pdf`;
-        return `/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(url))}`;
+        const url = `https://certificates.czcm-weld.ru/${headerdata.hash}/${headerdata.id_ship}-${lang}.pdf`;
+        return `/api/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(url))}`;
     }
 
     const n_s = (id_type !== 1) ? headerdata.n_s : "1111";
     const date_pr = (id_type !== 1) ? headerdata.dat : new Date(1111, 10, 11);
     const date = (id_type !== 1) ? headerdata.datvid : new Date(1111, 10, 11);
     const samplePref = (id_type !== 1) ? "СЕРТИФИКАТ КАЧЕСТВА №" : "ОБРАЗЕЦ СЕРТИФИКАТА КАЧЕСТВА №";
+    const massa = (id_type !== 1) ? headerdata.massa : 1111.0;
 
     let code = `${samplePref}${n_s}-${headerdata.year}`;
     if (is_ship) code += `/${headerdata.nomer}`;
 
     code += `\nМарка ${headerdata.marka}\nДиаметр, мм ${srt.insNumber("ru", headerdata.diam, 0)}\nНомер партии ${n_s}\n`;
-    code += `Дата производства ${srt.insDate("ru", date_pr, false)}\nМасса нетто, кг ${srt.insNumber("ru", headerdata.massa || 1111.0, 0)}\n`;
+    code += `Дата производства ${srt.insDate("ru", date_pr, false)}\nМасса нетто, кг ${srt.insNumber("ru", massa, 0)}\n`;
 
     if (is_ship && id_type !== 1) {
         code += "Грузополучатель: ";
@@ -104,11 +106,11 @@ function getQrCode(lang, headerdata, id_type, is_ship) {
             : `${headerdata.pol}\n`;
     }
     code += `Дата ${srt.insDate("ru", date, false)}\nКод подлинности ${headerdata.code}`;
-    return `/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(code))}`;
+    return `/api/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(code))}`;
 }
 
 module.exports = function (app) {
-    app.get("/certificates/elrtr/:id_type/:id", async (req, res) => {
+    app.get("/elrtr/certificates/:id_type/:id", async (req, res) => {
         try {
             const id = Number(req.params.id);
             const id_type = Number(req.params.id_type);
@@ -163,7 +165,7 @@ module.exports = function (app) {
             const chemtitle = srt.insText(lang, `${enru} Химический состав наплавленного металла, %`, `${enen} Chemical composition of weld metal, %`, true);
 
             // Шаг 4: Отрисовка шаблона Handlebars
-            res.render(__dirname + "/../../../views/cert.hbs", {
+            res.render(path.join(__dirname, "..", "..", "..", "..", "views", "cert.hbs"), {
                 header: head,
                 adr: srt.insText(lang, gendata.adr, gendata.adr_en, true),
                 tel: gendata.tel,

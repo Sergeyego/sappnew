@@ -1,4 +1,6 @@
 const db = require('../../../../postgres.js');
+const sql = require('../../../../sql.js');
+const queryTu = sql('routes/api/elrtr/parti/tu.sql');
 
 let getHeaderData = async function (id, is_ship=true) {
     let query = is_ship ? 
@@ -36,12 +38,7 @@ let getHeaderData = async function (id, is_ship=true) {
 }
 
 let getTuData = async function (id) {
-    let query="select nam as nam "+
-        "from zvd_get_tu_var((select dat_part from parti where id = $1 ), "+
-        "(select id_el from parti where id = $1 ), "+
-        "(select d.id from diam as d where d.diam = (select diam from parti where id = $1 )), "+
-        "(select id_var from parti where id = $1 ) ) ";
-    const data = await db.any(query, [ Number(id)] );
+    const data = await db.any(queryTu, [ Number(id)] );
     return data;
 }
 

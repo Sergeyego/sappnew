@@ -83,10 +83,13 @@ router.put('/users', bodyParser.json(), async (req, res) => {
     }
 });
 
+router.use(express.static(__dirname + '/public'));
+
 require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
 require('./barcode.js')(router);
+require('./routes/api/depimages/depimages.js')(router);
 
 require('./routes/api/elrtr/dosage/rcp.js')(router);
 require('./routes/api/elrtr/dosage/s3.js')(router);
@@ -111,6 +114,9 @@ require('./routes/api/elrtr/pack/pack.js')(router);
 require('./routes/api/elrtr/labels/api.js')(router);
 
 require('./routes/api/elrtr/pasport/api.js')(router);
+
+require('./routes/api/elrtr/certificate/create.js')(router);
+require('./routes/api/wire/certificate/create.js')(router);
 
 require('./routes/api/wms/api.js')(router);
 

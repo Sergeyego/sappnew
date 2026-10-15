@@ -17,11 +17,10 @@ let esc = function (v) {
     ));
 };
 
-// Вставляет ru/en-текст с учётом языка. Все значения экранируются,
-// <br> для newpar добавляется уже после escape.
+// Вставляет ru/en-текст с учётом языка.
 let insText = function (lang, rus, eng, newpar = false) {
-    const r = esc(rus);
-    const e = esc(eng);
+    const r = rus || "";
+    const e = eng || "";
     let text = "";
 
     if (typeof lang == "undefined" || lang == "ru" || rus == eng) {
@@ -29,7 +28,7 @@ let insText = function (lang, rus, eng, newpar = false) {
     } else if (lang == "en") {
         text = (e !== "") ? e : r;
     } else {
-        text = r;
+        text = r+" / ";
         if (newpar) text += "<br>";
         if (e !== "") text += e;
     }
@@ -80,7 +79,7 @@ let getChemTbl = function (lang, title, chemdata) {
     if (chemdata.length) {
         tbl = '<table class="tablestyle" border="1" cellspacing="1" cellpadding="3">' +
                 '<tr class="boldtext">' +
-                    '<td colspan="' + chemdata.length + '" class="centeralign">' + esc(title) + '</td>' +
+                    '<td colspan="' + chemdata.length + '" class="centeralign">' + title + '</td>' +
                 '</tr>' +
                 '<tr>';
         for (let i = 0; i < chemdata.length; i++) {
@@ -168,7 +167,7 @@ let getSertPic = function (sertdata, setSert) {
     for (let i = 0; i < sertdata.length; i++) {
         if (setSert.has(sertdata[i].id_doc) && sertdata[i].is_simb && !set.has(sertdata[i].id_ved)) {
             set.add(sertdata[i].id_ved);
-            im += '<img src="/depimages/' + sertdata[i].id_ved + '.png" alt="ved' + sertdata[i].id_ved + '" height="45"></img>';
+            im += '<img src="/api/depimages/' + sertdata[i].id_ved + '.png" alt="ved' + sertdata[i].id_ved + '" height="45"></img>';
         }
     }
     return im;
@@ -216,7 +215,7 @@ let getSign = function (lang, id_type, gendata) {
             const datDst = datSrc.split(".").reverse().join("-");
             const lg = (lang == "ru" || lang == "en") ? lang : "mix";
             sign += (lang == "ru" || lang == "en") ? "                        " : "   ";
-            sign += '<img src="/signatures/' + lg + '/' + datDst + '.png" alt="sign" height="150"></img>';
+            sign += '<img src="/api/signatures/' + lg + '/' + datDst + '.png" alt="sign" height="150"></img>';
         }
     } else if (id_type == 3) {
         let sep = (lang == "ru" || lang == "en") ? "                    " : "   ";
@@ -280,7 +279,7 @@ let getBackground = function (lang, id_type) {
     let back = "";
     if (id_type == 1) {
         let lg = (lang == "ru" || lang == "en") ? lang : "mix";
-        back = 'background-image: url("/bg_' + lg + '.png");';
+        back = 'background-image: url("/api/bg_' + lg + '.png");';
     }
     return back;
 };
