@@ -34,7 +34,7 @@ function getMainTbl(lang, headerdata, id_type) {
 function getQrCode(lang, headerdata, id_type, is_ship) {
     if (id_type >= 6 && headerdata.id_ship != null) {
         const url = `https://certificates.czcm-weld.ru/${headerdata.hash}/${headerdata.id_ship}-${lang}.pdf`;
-        return `/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(url))}`;
+        return `/api/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(url))}`;
     }
 
     const n_s = (id_type !== 1) ? headerdata.n_s : "1111";
@@ -51,7 +51,7 @@ function getQrCode(lang, headerdata, id_type, is_ship) {
     if (is_ship && id_type !== 1) code += `Грузополучатель: ${headerdata.pol}\n`;
     code += `Дата ${srt.insDate("ru", date, false)}\nКод подлинности ${headerdata.code}`;
 
-    return `/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(code))}`;
+    return `/api/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(code))}`;
 }
 
 module.exports = function (app) {

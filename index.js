@@ -89,6 +89,7 @@ require('./xlsx/api.js')(router);
 require('./client_olap/api.js')(router);
 require('./autorest/api.js')(router);
 require('./barcode.js')(router);
+
 require('./routes/api/depimages/depimages.js')(router);
 
 require('./routes/api/elrtr/dosage/rcp.js')(router);
@@ -119,6 +120,8 @@ require('./routes/api/elrtr/certificate/create.js')(router);
 require('./routes/api/wire/certificate/create.js')(router);
 
 require('./routes/api/wms/api.js')(router);
+
+require('./routes/api/generalship/generalship.js')(router);
 
 /*router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
