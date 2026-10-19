@@ -93,14 +93,17 @@ module.exports = function (app) {
             const n_s = (id_type !== 1) ? headerdata.n_s : "1111";
             const datvid = (id_type !== 1) ? headerdata.datvid : new Date(1111, 10, 11);
 
-            let head = `${srt.insText(lang, "СЕРТИФИКАТ КАЧЕСТВА", "QUALITY CERTIFICATE", false)} №${n_s}-${headerdata.year}`;
+            let numSert = `${n_s}-${headerdata.year}`;
+
             let poltitle = "", pol = "";
 
             if (is_ship) {
-                head += `/${headerdata.nomer}`;
+                numSert += `/${headerdata.nomer}`;
                 poltitle = `${srt.insText(lang, "Грузополучатель", "Consignee", false)}:`;
                 if (id_type !== 1) pol = srt.insText(lang, headerdata.pol, headerdata.pol_en);
             }
+
+            const head = `${srt.insText(lang, "СЕРТИФИКАТ КАЧЕСТВА", "QUALITY CERTIFICATE", false)} №${numSert}`;
 
             // Формируем текст подвала в зависимости от типа носителя
             const isLType = headerdata.spool.indexOf("L-") === 0;
@@ -112,6 +115,7 @@ module.exports = function (app) {
             
             // 4. Рендеринг страницы
             res.render(__dirname + "/../../../../views/cert.hbs", {
+                title: "wire_"+numSert,
                 header: head, 
                 adr: srt.insText(lang, gendata.adr, gendata.adr_en, true), 
                 tel: gendata.tel,

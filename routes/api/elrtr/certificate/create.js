@@ -149,11 +149,12 @@ module.exports = function (app) {
             const n_s = (id_type !== 1) ? headerdata.n_s : "1111";
             const datvid = (id_type !== 1) ? headerdata.datvid : new Date(1111, 10, 11);
 
-            let head = `${srt.insText(lang, "СЕРТИФИКАТ КАЧЕСТВА", "QUALITY CERTIFICATE", false)} №${n_s}-${headerdata.year}`;
+            let numSert = `${n_s}-${headerdata.year}`;
+
             let poltitle = "", pol = "";
 
             if (is_ship) {
-                head += `/${headerdata.nomer}`;
+                numSert += `/${headerdata.nomer}`;
                 poltitle = `${srt.insText(lang, "Грузополучатель", "Consignee", false)}:`;
                 if (id_type !== 1) {
                     pol = (headerdata.pol !== headerdata.pol2 && headerdata.doublepol)
@@ -162,10 +163,13 @@ module.exports = function (app) {
                 }
             }
 
+            const head = `${srt.insText(lang, "СЕРТИФИКАТ КАЧЕСТВА", "QUALITY CERTIFICATE", false)} №${numSert}`;
+
             const chemtitle = srt.insText(lang, `${enru} Химический состав наплавленного металла, %`, `${enen} Chemical composition of weld metal, %`, true);
 
             // Шаг 4: Отрисовка шаблона Handlebars
             res.render(path.join(__dirname, "..", "..", "..", "..", "views", "cert.hbs"), {
+                title: "elrtr_"+numSert,
                 header: head,
                 adr: srt.insText(lang, gendata.adr, gendata.adr_en, true),
                 tel: gendata.tel,
