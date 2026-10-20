@@ -117,7 +117,9 @@ require('./routes/api/elrtr/labels/api.js')(router);
 require('./routes/api/elrtr/pasport/api.js')(router);
 
 require('./routes/api/elrtr/certificate/create.js')(router);
+
 require('./routes/api/wire/certificate/create.js')(router);
+require('./routes/api/wire/parti/parti.js')(router);
 
 require('./routes/api/wms/api.js')(router);
 
