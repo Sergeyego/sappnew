@@ -122,6 +122,7 @@ require('./routes/api/wire/certificate/create.js')(router);
 require('./routes/api/wire/parti/parti.js')(router);
 
 require('./routes/api/wms/api.js')(router);
+require('./routes/api/site/api.js')(router);
 
 require('./routes/api/generalship/generalship.js')(router);
 

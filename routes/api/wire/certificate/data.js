@@ -5,8 +5,8 @@ let getHeaderData = async function (id, is_ship=true) {
         "select w.id_wparti as id, w.m_netto as massa, s.nom_s as nomer, coalesce(s.dat_vid,($2)::date) as datvid, m.n_s as n_s, "+
         "date_part('year',m.dat) as year, m.dat as dat, "+
         "b.n_plav as nplav, prov.nam as sprov, pprov.nam as prov, d.diam as diam, k.nam as spool, "+
-        "pol.naim as pol, pprov.is_cored as is_cored, pol.naim_en as pol_en, k.short_en as spool_en, coalesce(bprov.nam, pprov.nam) as bprov, "+
-        "(w.id::int8+((p.id::int8)<<32)::int8)::varchar as code, w.id as id_ship, w.hash as hash "+
+        "pol.naim as pol, pol1.naim as pol2, pol1.naim_en as pol2_en, pprov.is_cored as is_cored, pol.naim_en as pol_en, k.short_en as spool_en, coalesce(bprov.nam, pprov.nam) as bprov, "+
+        "(w.id::int8+((p.id::int8)<<32)::int8)::varchar as code, w.id as id_ship, w.hash as hash, s.doublepol as doublepol "+
         "from wire_shipment_consist as w "+
         "inner join sertifikat as s on w.id_ship=s.id "+
         "inner join wire_parti as p on w.id_wparti=p.id "+
@@ -17,15 +17,16 @@ let getHeaderData = async function (id, is_ship=true) {
         "inner join provol as pprov on m.id_provol=pprov.id "+
         "left join provol as bprov on pprov.id_base=bprov.id "+
         "inner join diam as d on m.id_diam=d.id "+
+        "inner join poluch as pol1 on s.id_pol=pol1.id "+
         "inner join poluch as pol on w.id_pol=pol.id "+
         "inner join wire_pack_kind as k on p.id_pack=k.id "+
-        "where w.id= $1 "
+        "where w.id = $1 "
         :
         "select p.id as id, m.kvo as massa, NULL as nomer, ($2)::date as datvid, m.n_s as n_s, "+
         "date_part('year',m.dat) as year, m.dat as dat, "+
         "b.n_plav as nplav, prov.nam as sprov, pprov.nam as prov, d.diam as diam, k.nam as spool, "+
-        "NULL as pol, pprov.is_cored as is_cored, NULL as pol_en, k.short_en as spool_en, coalesce(bprov.nam, pprov.nam) as bprov, "+
-        "(0::int8+((p.id::int8)<<32)::int8)::varchar as code, NULL as id_ship, NULL as hash "+
+        "NULL as pol, NULL as pol2, NULL as pol2_en, pprov.is_cored as is_cored, NULL as pol_en, k.short_en as spool_en, coalesce(bprov.nam, pprov.nam) as bprov, "+
+        "(0::int8+((p.id::int8)<<32)::int8)::varchar as code, NULL as id_ship, NULL as hash, false as doublepol "+
         "from wire_parti as p "+
         "inner join wire_parti_m as m on p.id_m=m.id "+
         "inner join prov_buht as b on m.id_buht=b.id "+
@@ -57,15 +58,25 @@ let getChemData = async function (id) {
 }
 
 let getMechData = async function (id) {
-    let query="select w.id_cat as id_cat, "+
-        "m.nam_html as nam, m.sig_html as sig, m.prefix as prefix, w.value as val, w.value_max as val_max, "+
-        "m.nam_html_en as nam_en, m.sig_html_en as sig_en, m.prefix_en as prefix_en, mc.nam as catnam, mc.nam_en as catnam_en "+
-        "from wire_parti_mech as w "+
-        "inner join mech_tbl as m on w.id_mech=m.id "+
-        "inner join wire_parti_m as p on p.id=w.id_part "+
-        "inner join provol as prov on p.id_provol=prov.id "+
-        "inner join mech_category mc on mc.id=w.id_cat "+
-        "where w.id_part= (select p.id_m from wire_parti as p where p.id = $1 ) order by w.id_cat";
+    let query =
+        `select * from (
+        (select w.id_cat as id_cat, 
+        m.nam_html as nam, m.sig_html as sig, m.prefix as prefix, w.value as val, w.value_max as val_max, 
+        m.nam_html_en as nam_en, m.sig_html_en as sig_en, m.prefix_en as prefix_en, mc.nam as catnam, mc.nam_en as catnam_en 
+        from wire_parti_mech as w 
+        inner join mech_tbl as m on w.id_mech=m.id 
+        inner join wire_parti_m as p on p.id=w.id_part 
+        inner join provol as prov on p.id_provol=prov.id 
+        inner join mech_category mc on mc.id=w.id_cat 
+        where w.id_part = (select p.id_m from wire_parti as p where p.id = $1 ))
+        union
+        (select wm.id_cat, mt.nam, null, mn.nam, null, null, mt.nam_en, null, mn.nam_en, mc.nam, mc.nam_en 
+        from wire_mechx wm
+        inner join mechx_tbl mt on mt.id = wm.id_mechx 
+        inner join mechx_nams mn on mn.id = wm.id_value 
+        inner join mech_category mc on mc.id = wm.id_cat 
+        where wm.id_part = (select p.id_m from wire_parti as p where p.id = $1 )
+        )) as r order by r.id_cat, r.nam`;
     const data = await db.any(query, [ Number(id)] );
     return data;
 }

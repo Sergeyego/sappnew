@@ -1,7 +1,34 @@
 const db = require('../../../../postgres.js');
 const autorest = require('../../../../autorest/autorest.js');
-//const sql = require('../../../../sql.js');
-var bodyParser = require('body-parser');
+const otk = require('../../../../otk.js');
+const bodyParser = require('body-parser');
+
+const getChemBuhtTu = async function (id_buht) {
+    const query = `
+        select c.id_chem, c.min, c.max from wire_chem_tu as c where c.id_provol = 
+        (select COALESCE(pr.id_base, pp.id_pr) from prov_buht as b inner join prov_prih as pp on b.id_prih=pp.id 
+        inner join provol as pr on pp.id_pr=pr.id where b.id = $1 )
+    `;
+    const state = await db.any(query, [id_buht]);
+    const mapStat = new Map();
+    for (let i = 0; i < state.length; i++) {
+        mapStat.set(state[i].id_chem, { min: state[i].min, max: state[i].max });
+    }
+    return mapStat;
+}
+
+const getChemPartTu = async function (id_m) {
+    const query = `
+        select c.id_chem, c.min, c.max from wire_chem_tu as c where c.id_provol = 
+        (select COALESCE(pr.id_base, p.id_provol) from wire_parti_m as p inner join provol as pr on p.id_provol=pr.id where p.id = $1 )
+    `;
+    const state = await db.any(query, [id_m]);
+    const mapStat = new Map();
+    for (let i = 0; i < state.length; i++) {
+        mapStat.set(state[i].id_chem, { min: state[i].min, max: state[i].max });
+    }
+    return mapStat;
+}
 
 const getPartState = async function (filter, param) {
     const query = `select wpm.id as id, 
@@ -31,6 +58,28 @@ const getPartState = async function (filter, param) {
 
 module.exports = function (app) {
 
+    app.use("/wire/parti/chem/buth", autorest.parseFilterMiddleware("prov_chem"), bodyParser.json(), async (req, res) => {
+        const tableName = "prov_chem";
+        try {
+            let data = await autorest.getData(tableName, req);
+            await otk.processTuColoring(data, tableName, getChemBuhtTu, "id_chem", "id_buht");
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.use("/wire/parti/chem/part", autorest.parseFilterMiddleware("wire_parti_chem"), bodyParser.json(), async (req, res) => {
+        const tableName = "wire_parti_chem";
+        try {
+            let data = await autorest.getData(tableName, req);
+            await otk.processTuColoring(data, tableName, getChemPartTu, "id_chem", "id_part");
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+    
     app.get("/wire/parti/note/:id_part", async (req, res) => {
         try {
             const query = `select wp.prim_prod as prim_prod from wire_parti wp where wp.id = $1`;
@@ -190,16 +239,16 @@ module.exports = function (app) {
 
             let filter = "where wpm.dat between ${d1} and ${d2} ";
 
-            // Проверяем id_el
+            // Проверяем id_prov
             const id_prov = Number(req.query.id_prov);
+            const id_diam = Number(req.query.id_diam);
             if (id_prov && id_prov > 0) {
                 filter += "and wpm.id_provol = ${id_prov} ";
                 fltObj.id_prov = id_prov; // Добавляем в объект только если прошел проверку
 
-                // Проверяем diam (работает, если diam пришел как строка или число)
-                if (req.query.diam !== undefined && req.query.diam !== null && req.query.diam !== "") {
-                    filter += "and d.diam = ${diam} ";
-                    fltObj.diam = Number(req.query.diam); // Приводим к числу для соответствия типу в БД
+                if (id_diam && id_diam>0) {
+                    filter += "and wpm.id_diam = ${id_diam} ";
+                    fltObj.id_diam = Number(req.query.id_diam); // Приводим к числу для соответствия типу в БД
                 }
             }
 

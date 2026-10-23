@@ -48,7 +48,12 @@ function getQrCode(lang, headerdata, id_type, is_ship) {
     code += `Условное обозначение проволоки ${srt.insNumber("ru", headerdata.diam, 1)} ${headerdata.prov}\n`;
     code += `Тип носителя проволоки ${headerdata.spool}\nНомер плавки ${headerdata.nplav}\nНомер партии ${n_s}\n`;
     code += `Дата производства ${srt.insDate("ru", date_pr, false)}\nМасса нетто, кг ${srt.insNumber("ru",massa, 0)}\n`;
-    if (is_ship && id_type !== 1) code += `Грузополучатель: ${headerdata.pol}\n`;
+    if (is_ship && id_type !== 1) {
+        code += "Грузополучатель: ";
+        code += (headerdata.pol !== headerdata.pol2 && headerdata.doublepol)
+            ? `${headerdata.pol2} (для ${headerdata.pol})\n`
+            : `${headerdata.pol}\n`;
+    }
     code += `Дата ${srt.insDate("ru", date, false)}\nКод подлинности ${headerdata.code}`;
 
     return `/api/qrcode/300.png?data=${qr.encodeBase64Url(Buffer.from(code))}`;
@@ -100,7 +105,11 @@ module.exports = function (app) {
             if (is_ship) {
                 numSert += `/${headerdata.nomer}`;
                 poltitle = `${srt.insText(lang, "Грузополучатель", "Consignee", false)}:`;
-                if (id_type !== 1) pol = srt.insText(lang, headerdata.pol, headerdata.pol_en);
+                if (id_type !== 1) {
+                    pol = (headerdata.pol !== headerdata.pol2 && headerdata.doublepol)
+                        ? srt.insText(lang, headerdata.pol2, headerdata.pol2_en) + srt.insText(lang, " (для ", " (for ") + srt.insText(lang, headerdata.pol, headerdata.pol_en) + ")"
+                        : srt.insText(lang, headerdata.pol, headerdata.pol_en);
+                }
             }
 
             const head = `${srt.insText(lang, "СЕРТИФИКАТ КАЧЕСТВА", "QUALITY CERTIFICATE", false)} №${numSert}`;

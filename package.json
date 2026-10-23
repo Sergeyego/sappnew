@@ -17,6 +17,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "hbs": "^4.2.1",
+    "html-entities": "^2.6.0",
     "jsonwebtoken": "^9.0.3",
     "minio": "^8.0.7",
     "multer": "^2.2.0",
