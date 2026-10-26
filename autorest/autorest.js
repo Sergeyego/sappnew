@@ -138,14 +138,14 @@ const buildTreeFilter = function (rootNode, allowedColumnsSet, maxDepth = 5) {
         const paramBase = `v_${sanitizedField}_${counter}`;
         const opClean = op.toLowerCase().trim();
 
+        // Операторы IS NULL и IS NOT NULL не требуют value
+        if (opClean === 'null') return `${fullFieldName} IS NULL`;
+        if (opClean === 'nnull') return `${fullFieldName} IS NOT NULL`;
+
         //eq/ne с undefined отсекаются
         if (value === undefined) {
             throw new Error(`Недопустимое значение "undefined" для поля "${field}"`);
         }
-
-        //eq/ne с null корректно преобразуются в нативный синтаксис IS NULL
-        if (opClean === 'eq' && value === null) return `${fullFieldName} IS NULL`;
-        if (opClean === 'ne' && value === null) return `${fullFieldName} IS NOT NULL`;
 
         const scalarOperators = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike'];
         if (scalarOperators.includes(opClean) && !isStrictPrimitive(value)) {
@@ -185,8 +185,6 @@ const buildTreeFilter = function (rootNode, allowedColumnsSet, maxDepth = 5) {
                 }
                 queryParams[paramBase] = value;
                 return `${fullFieldName} ${opClean === 'in' ? 'IN' : 'NOT IN'} (\${${paramBase}:csv})`;
-            case 'null': return `${fullFieldName} IS NULL`;
-            case 'nnull': return `${fullFieldName} IS NOT NULL`;
             default: throw new Error(`Неизвестный или неподдерживаемый оператор: "${opClean}" для поля "${field}"`);
         }
     };

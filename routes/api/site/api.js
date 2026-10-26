@@ -7,7 +7,7 @@ const encode = require('html-entities');
 const SITE_COOKIE = process.env.BITRIX_COOKIE || "beget=begetok";
 
 // ==========================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (БЕЗ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ)
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ==========================================
 
 const getSiteData = async function () {
@@ -28,16 +28,26 @@ const queryString = function (obj) {
     return params.toString();
 };
 
+// Хелпер для нормализации: приводит null/undefined к '', обрезает пробелы
+const norm = function (v) {
+    if (v === null || v === undefined || v === false) return '';
+    return String(v).trim();
+};
+
+// Обновленная функция simbEq
 const simbEq = function (kis, data) {
-    return (kis == encode.decode(data)) || (kis == '-' && data == '');
+    const k = norm(kis);
+    const d = norm(encode.decode(data));
+    return (k === d) || (k === '-' && d === '');
+};
+
+// Обновленная функция paramEq
+const paramEq = function (kis, data) {
+    return norm(kis) === norm(data);
 };
 
 const lenEq = function (kis, data) {
     return data ? (kis.length == data.length) : (kis.length == 0);
-};
-
-const paramEq = function (kis, data) {
-    return data ? (kis == data) : (kis.length == 0);
 };
 
 const getElProc = function (p) {
@@ -65,7 +75,7 @@ const getDocData = async function (id_doc) {
     return await db.one(
         "select zs.nom_doc, zs.dat_beg, zs.dat_end, zs.dat_doc, zs.id_ved, " +
         "COALESCE(zs.gr_tech_ust,'') as gr_tech_ust, zd.fnam as nazv " +
-        "from zvd_sert zs inner join zvd_doc zd on zd.id=zs.id_doc where zs.id = $1 ", 
+        "from zvd_sert zs inner join zvd_doc zd on zd.id=zs.id_doc where zs.id = $1 ",
         [Number(id_doc)]
     );
 };
@@ -75,7 +85,7 @@ const getDocsData = async function () {
         "select zs.nom_doc, zs.dat_beg, zs.dat_end, zs.dat_doc, zs.id_ved, " +
         "COALESCE(zs.gr_tech_ust,'') as gr_tech_ust, zd.fnam as nazv " +
         "from zvd_sert zs inner join zvd_doc zd on zd.id=zs.id_doc " +
-        "where COALESCE(zs.dat_end,'3000-01-01')>= $1 ", 
+        "where COALESCE(zs.dat_end,'3000-01-01')>= $1 ",
         [new Date()]
     );
 };
@@ -112,8 +122,8 @@ const getWireData = async function () {
 const getElTuBulk = async function (ids) {
     if (!ids.length) return new Map();
     const data = await db.any(
-        "select t.id_el, t.nam from unnest($2::int[]) as ids(id_el) " +
-        "cross join lateral zvd_get_tu_var($1, ids.id_el, 4, 1) t", 
+        "select ids.id_el, t.nam from unnest($2::int[]) as ids(id_el) " +
+        "cross join lateral zvd_get_tu_var($1, ids.id_el, 4, 1) t",
         [new Date(), ids]
     );
     return groupBy(data, 'id_el');
@@ -124,7 +134,7 @@ const getElAmpBulk = async function (ids) {
     const data = await db.any(
         "select a.id_el, d.diam, a.bot, a.vert, a.ceil from amp as a " +
         "inner join diam as d on a.id_diam=d.id " +
-        "where a.id_el = ANY($1::int[]) and a.id_var=1 order by d.diam", 
+        "where a.id_el = ANY($1::int[]) and a.id_var=1 order by d.diam",
         [ids]
     );
     return groupBy(data, 'id_el');
@@ -135,7 +145,7 @@ const getElPlavBulk = async function (ids) {
     const data = await db.any(
         "select e.id_el, n.nam, e.value from el_plav as e " +
         "inner join el_plav_nams as n on e.id_plav=n.id " +
-        "where e.id_el = ANY($1::int[]) order by e.id_plav", 
+        "where e.id_el = ANY($1::int[]) order by e.id_plav",
         [ids]
     );
     return groupBy(data, 'id_el');
@@ -146,7 +156,7 @@ const getElChemBulk = async function (ids) {
     const data = await db.any(
         "select c.id_el, t.nam, t.sig, c.min, c.max from chem_tu as c " +
         "inner join chem_tbl as t on t.id=c.id_chem " +
-        "where c.id_el = ANY($1::int[]) and c.id_var=1 order by t.sig", 
+        "where c.id_el = ANY($1::int[]) and c.id_var=1 order by t.sig",
         [ids]
     );
     return groupBy(data, 'id_el');
@@ -157,7 +167,7 @@ const getElMechBulk = async function (ids) {
     const data = await db.any(
         "select m.id_el, t.nam_html, t.sig_html, m.min, m.max from mech_tu as m " +
         "inner join mech_tbl as t on t.id=m.id_mech " +
-        "where m.id_el = ANY($1::int[]) and m.id_var=1 order by t.nam_html", 
+        "where m.id_el = ANY($1::int[]) and m.id_var=1 order by t.nam_html",
         [ids]
     );
     return groupBy(data, 'id_el');
@@ -166,7 +176,7 @@ const getElMechBulk = async function (ids) {
 const getElDiamsBulk = async function (ids) {
     if (!ids.length) return new Map();
     const data = await db.any(
-        "select p.id_el, z.diam as diam, " +
+        "select z.id_el, z.diam as diam, " + 
         "(SELECT pp.key FROM jsonb_each(z.pack) as pp where pp.value::double precision = (select max(value::double precision) from jsonb_each(z.pack))) as spool " +
         "from ( " +
         "  select p.id_el, p.diam as diam, jsonb_object_agg(ep.snam, ep.mass_ed) as pack " +
@@ -176,7 +186,7 @@ const getElDiamsBulk = async function (ids) {
         "  inner join el_pack ep on ep.id = p.id_pack " +
         "  where s.dat_vid >=(CURRENT_DATE - 1460) and ep.catalog = true and p.id_el = ANY($1::int[]) " +
         "  group by p.id_el, p.diam " +
-        ") as z order by z.id_el, z.diam", 
+        ") as z order by z.id_el, z.diam",
         [ids]
     );
     return groupBy(data, 'id_el');
@@ -195,7 +205,7 @@ const getElSertBulk = async function (ids) {
         "inner join zvd_sert zs on zs.id = ze.id_sert " +
         "inner join dry_els de on de.ide = ze.id_eldr " +
         "where COALESCE(zs.dat_end,'3000-01-01')>= $1 and de.id_el = ANY($2::int[]) " +
-        "group by de.id_el, ze.id_sert, zs.nom_doc", 
+        "group by de.id_el, ze.id_sert, zs.nom_doc",
         [new Date(), ids]
     );
     return groupBy(data, 'id_el');
@@ -206,7 +216,7 @@ const getWireTuBulk = async function (ids) {
     const data = await db.any(
         "select t.id_provol, g.nam from wire_gost as t " +
         "inner join gost_new as g on t.id_gost=g.id " +
-        "where t.id_provol = ANY($1::int[]) order by g.nam", 
+        "where t.id_provol = ANY($1::int[]) order by g.nam",
         [ids]
     );
     return groupBy(data, 'id_provol');
@@ -215,9 +225,12 @@ const getWireTuBulk = async function (ids) {
 const getWireChemBulk = async function (ids) {
     if (!ids.length) return new Map();
     const data = await db.any(
-        "select p.id as id_provol, t.nam, t.sig, c.min, c.max from wire_chem_tu as c " +
-        "inner join chem_tbl as t on t.id=c.id_chem " +
-        "inner join provol as p on p.id = ANY($1::int[]) and c.id_provol = COALESCE(p.id_base, p.id) order by t.sig", 
+        "select p.id as id_provol, t.nam, t.sig, c.min, c.max " +
+        "from provol as p " +
+        "inner join wire_chem_tu as c on c.id_provol = COALESCE(p.id_base, p.id) " +
+        "inner join chem_tbl as t on t.id = c.id_chem " +
+        "where p.id = ANY($1::int[]) " +
+        "order by t.sig",
         [ids]
     );
     return groupBy(data, 'id_provol');
@@ -231,7 +244,7 @@ const getWireDiamsBulk = async function (ids) {
         "inner join diam d on d.id = wd.id_diam " +
         "inner join wire_pack_kind wpk on wpk.id = wd.id_spool " +
         "where wd.id_wire = ANY($1::int[]) and wpk.katalog = true " +
-        "group by wd.id_wire, d.diam order by d.diam", 
+        "group by wd.id_wire, d.diam order by d.diam",
         [ids]
     );
     return groupBy(data, 'id_wire');
@@ -249,7 +262,7 @@ const getWireSertBulk = async function (ids) {
         "inner join zvd_sert zs on zs.id = zwds.id_sert " +
         "inner join diam d on d.id=zwds.id_diam " +
         "where COALESCE(zs.dat_end,'3000-01-01')>= $1 and zwds.id_provol = ANY($2::int[]) " +
-        "group by zwds.id_provol, zs.nom_doc, zwds.id_sert", 
+        "group by zwds.id_provol, zs.nom_doc, zwds.id_sert",
         [new Date(), ids]
     );
     return groupBy(data, 'id_provol');
@@ -272,8 +285,7 @@ function groupBy(array, key) {
 
 const sendReq = async function (sitedata, path, method, body) {
     let err = "", ok = false, data;
-    
-    // Используем глобальный Headers вместо fetch.Headers из node-fetch
+
     const headers = new Headers({
         "Accept": "application/json",
         "Accept-Charset": "UTF-8",
@@ -283,8 +295,7 @@ const sendReq = async function (sitedata, path, method, body) {
     });
 
     const url = sitedata.url + '/rest/3/' + sitedata.code + '/' + path;
-    
-    // Глобальный fetch уже доступен
+
     const response = await fetch(url, { method, headers, body });
 
     if (response.headers.get('Content-Type')?.indexOf('application/json') >= 0) {
@@ -334,29 +345,29 @@ const updDoc = async function (sitedata, id, data, clearFile, body) {
 // ==========================================
 
 const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, mapDoc) {
-    let eq = (kis.marka == encode.decode(data['NAME']) &&
+    const eq = (norm(kis.marka) === norm(encode.decode(data['NAME'])) &&
         ((kis.active && (data['ACTIVE'] == 'Y')) || (!kis.active && (data['ACTIVE'] == 'N'))) &&
-        kis.vid == encode.decode(data['NAZNACHENIE']) &&
+        norm(kis.vid) === norm(encode.decode(data['NAZNACHENIE'])) &&
         simbEq(kis.type, data['TIP_PO_GOST']) &&
         simbEq(kis.suf, data['SUFFIKS']) &&
         simbEq(kis.znam, data['ZNAMENATEL']) &&
         simbEq(kis.iso, data['TIP_PO_ISO']) &&
         simbEq(kis.aws, data['TIP_PO_AWS']) &&
-        kis.id_pol == data['POLOZHENIE_PRI_SVARKE'] &&
-        kis.descr == encode.decode(data['OPISANIE']) &&
-        kis.descr_spec == encode.decode(data['OSOBYE_SVOYSTVA']) &&
-        kis.descr_feature == encode.decode(data['TEKHNOLOGICHESKIE_OSOBENNOSTI_SVARKI']) &&
-        getElProc(kis.proc) == encode.decode(data['PROKALKA_PERED_SVARKOY']) &&
-        kis.marka == encode.decode(data['NAZVANIE']) &&
-        data['KHIMICHESKIY_SOSTAV_PROVOLOKI'] == false &&
-        data['TIP_PROVOLOKI'] == '' &&
-        data['BAZOVAYA_MARKA'] == ''
+        norm(kis.id_pol) === norm(data['POLOZHENIE_PRI_SVARKE']) &&
+        norm(kis.descr) === norm(encode.decode(data['OPISANIE'])) &&
+        norm(kis.descr_spec) === norm(encode.decode(data['OSOBYE_SVOYSTVA'])) &&
+        norm(kis.descr_feature) === norm(encode.decode(data['TEKHNOLOGICHESKIE_OSOBENNOSTI_SVARKI'])) &&
+        norm(getElProc(kis.proc)) === norm(encode.decode(data['PROKALKA_PERED_SVARKOY'])) &&
+        norm(kis.marka) === norm(encode.decode(data['NAZVANIE'])) &&
+        norm(data['KHIMICHESKIY_SOSTAV_PROVOLOKI']) === '' &&
+        norm(data['TIP_PROVOLOKI']) === '' &&
+        norm(data['BAZOVAYA_MARKA']) === ''
     );
 
     let tuEq = eq && lenEq(tu, data['NORMATIVNAYA_DOKUMENTATSIYA']);
     if (tuEq) {
         for (let i = 0; i < tu.length; i++) {
-            tuEq = tuEq && (tu[i].nam == encode.decode(data['NORMATIVNAYA_DOKUMENTATSIYA'][i]));
+            tuEq = tuEq && (norm(tu[i].nam) === norm(encode.decode(data['NORMATIVNAYA_DOKUMENTATSIYA'][i])));
         }
     }
 
@@ -364,7 +375,7 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
     if (ampEq) {
         for (let i = 0; i < amp.length; i++) {
             const str = locale.insNumber(amp[i].diam, 1) + "#" + amp[i].bot + "#" + amp[i].vert + "#" + amp[i].ceil + "#";
-            ampEq = ampEq && (str == encode.decode(data['REKOMENDUEMOE_ZNACHENIE_TOKA'][i]));
+            ampEq = ampEq && (norm(str) === norm(encode.decode(data['REKOMENDUEMOE_ZNACHENIE_TOKA'][i])));
         }
     }
 
@@ -372,7 +383,7 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
     if (plavEq) {
         for (let i = 0; i < plav.length; i++) {
             const str = plav[i].nam + "#" + locale.insNumber(plav[i].value, 2) + "#";
-            plavEq = plavEq && (str == encode.decodeEntity(data['KHARAKTERISTIKI_PLAVLENIYA'][i]));
+            plavEq = plavEq && (norm(str) === norm(encode.decodeEntity(data['KHARAKTERISTIKI_PLAVLENIYA'][i])));
         }
     }
 
@@ -382,7 +393,7 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
             const min = (chem[i].min == null) ? '' : locale.insNumber(chem[i].min, 3);
             const max = (chem[i].max == null) ? '' : locale.insNumber(chem[i].max, 3);
             const str = chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#";
-            chemEq = chemEq && (str == encode.decode(data['KHIMICHESKIY_SOSTAV_NAPLAVLENNOGO_METALLA'][i]));
+            chemEq = chemEq && (norm(str) === norm(encode.decode(data['KHIMICHESKIY_SOSTAV_NAPLAVLENNOGO_METALLA'][i])));
         }
     }
 
@@ -390,30 +401,26 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
     if (mechEq) {
         for (let i = 0; i < mech.length; i++) {
             let val = '';
-            if (mech[i].min == null && mech[i].max != null) {
-                val = "<= " + locale.insNumber(mech[i].max, 3);
-            } else if (mech[i].max == null && mech[i].min != null) {
-                val = ">= " + locale.insNumber(mech[i].min, 3);
-            } else if (mech[i].max != null && mech[i].min != null) {
-                val = locale.insNumber(mech[i].min, 3) + " - " + locale.insNumber(mech[i].max, 3);
-            }
+            if (mech[i].min == null && mech[i].max != null) val = "<= " + locale.insNumber(mech[i].max, 3);
+            else if (mech[i].max == null && mech[i].min != null) val = ">= " + locale.insNumber(mech[i].min, 3);
+            else if (mech[i].max != null && mech[i].min != null) val = locale.insNumber(mech[i].min, 3) + " - " + locale.insNumber(mech[i].max, 3);
             const str = encode.decode(mech[i].nam_html + "#" + mech[i].sig_html + "#" + val + "#");
-            mechEq = mechEq && (str == encode.decode(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'][i]));
+            mechEq = mechEq && (norm(str) === norm(encode.decode(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'][i])));
         }
     }
 
     let diamsEq = eq && lenEq(diams, data['DIAMETER']);
     if (diamsEq) {
         for (let i = 0; i < diams.length; i++) {
-            diamsEq = diamsEq && (locale.insNumber(diams[i].diam, 1) == encode.decode(data['DIAMETER'][i]));
+            diamsEq = diamsEq && (norm(locale.insNumber(diams[i].diam, 1)) === norm(encode.decode(data['DIAMETER'][i])));
         }
     }
 
     let spoolEq = eq && lenEq(diams, data['NOSITELI_PROVOLOKI']?.VALUE);
     if (spoolEq) {
         for (let i = 0; i < diams.length; i++) {
-            spoolEq = spoolEq && (locale.insNumber(diams[i].diam, 1) == encode.decode(data['NOSITELI_PROVOLOKI']['VALUE'][i]))
-                && (diams[i].spool == encode.decode(data['NOSITELI_PROVOLOKI']['DESCRIPTION'][i]));
+            spoolEq = spoolEq && (norm(locale.insNumber(diams[i].diam, 1)) === norm(encode.decode(data['NOSITELI_PROVOLOKI']['VALUE'][i])))
+                && (norm(diams[i].spool) === norm(encode.decode(data['NOSITELI_PROVOLOKI']['DESCRIPTION'][i])));
         }
     }
 
@@ -425,10 +432,8 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
         }
         for (let i = 0; i < sert.length; i++) {
             const doc = mapDoc.get(sert[i].nam);
-            if (!doc) { sertEq = false; break; } // Защита от TypeError
-            const id_sert = doc['ID'];
-            const descr = sert[i].diams;
-            sertEq = sertEq && map.has(id_sert) && paramEq(descr, map.get(id_sert));
+            if (!doc) { sertEq = false; break; }
+            sertEq = sertEq && map.has(doc['ID']) && paramEq(sert[i].diams, map.get(doc['ID']));
         }
     }
 
@@ -454,7 +459,7 @@ const createElObj = function (id, kis, tu, amp, plav, chem, mech, diams, sert, m
         'POLOZHENIE_PRI_SVARKE': kis.id_pol,
         'OPISANIE': kis.descr,
         'OSOBYE_SVOYSTVA': kis.descr_spec,
-        'TEKHNOLOGICHESKIE_OSOBNENNOSTI_SVARKI': kis.descr_feature,
+        'TEKHNOLOGICHESKIE_OSOBENNOSTI_SVARKI': kis.descr_feature,
         'PROKALKA_PERED_SVARKOY': getElProc(kis.proc),
         'NAZVANIE': kis.marka,
         'KHIMICHESKIY_SOSTAV_PROVOLOKI': '',
@@ -462,31 +467,31 @@ const createElObj = function (id, kis, tu, amp, plav, chem, mech, diams, sert, m
         'BAZOVAYA_MARKA': '',
     };
 
-    let tuobj = {};
-    for (let i = 0; i < tu.length; i++) tuobj[i] = tu[i].nam;
+    let tuobj = [];
+    for (let i = 0; i < tu.length; i++) tuobj.push(tu[i].nam);
     fields['NORMATIVNAYA_DOKUMENTATSIYA'] = tuobj;
 
-    let ampobj = {};
+    let ampobj = [];
     for (let i = 0; i < amp.length; i++) {
-        ampobj[i] = locale.insNumber(amp[i].diam, 1) + "#" + amp[i].bot + "#" + amp[i].vert + "#" + amp[i].ceil + "#";
+        ampobj.push(locale.insNumber(amp[i].diam, 1) + "#" + amp[i].bot + "#" + amp[i].vert + "#" + amp[i].ceil + "#");
     }
     fields['REKOMENDUEMOE_ZNACHENIE_TOKA'] = ampobj;
 
-    let plavobj = {};
+    let plavobj = [];
     for (let i = 0; i < plav.length; i++) {
-        plavobj[i] = plav[i].nam + "#" + locale.insNumber(plav[i].value, 2) + "#";
+        plavobj.push(plav[i].nam + "#" + locale.insNumber(plav[i].value, 2) + "#");
     }
     fields['KHARAKTERISTIKI_PLAVLENIYA'] = plavobj;
 
-    let chemobj = {};
+    let chemobj = [];
     for (let i = 0; i < chem.length; i++) {
         const min = (chem[i].min == null) ? '' : locale.insNumber(chem[i].min, 3);
         const max = (chem[i].max == null) ? '' : locale.insNumber(chem[i].max, 3);
-        chemobj[i] = chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#";
+        chemobj.push(chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#");
     }
     fields['KHIMICHESKIY_SOSTAV_NAPLAVLENNOGO_METALLA'] = chemobj;
 
-    let mechobj = {};
+    let mechobj = [];
     for (let i = 0; i < mech.length; i++) {
         let val = '';
         if (mech[i].min == null && mech[i].max != null) {
@@ -496,27 +501,35 @@ const createElObj = function (id, kis, tu, amp, plav, chem, mech, diams, sert, m
         } else if (mech[i].max != null && mech[i].min != null) {
             val = locale.insNumber(mech[i].min, 3) + " - " + locale.insNumber(mech[i].max, 3);
         }
-        mechobj[i] = encode.decode(mech[i].nam_html + "#" + mech[i].sig_html + "#" + val + "#");
+        mechobj.push(encode.decode(mech[i].nam_html + "#" + mech[i].sig_html + "#" + val + "#"));
     }
     fields['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'] = mechobj;
 
-    let diamsobj = {}, spoolobj = {};
+    let diamsobj = [];
+    let spoolobj = [];
     for (let i = 0; i < diams.length; i++) {
-        diamsobj[i] = locale.insNumber(diams[i].diam, 1);
-        spoolobj[i] = { 'VALUE': locale.insNumber(diams[i].diam, 1), 'DESCRIPTION': diams[i].spool };
+        diamsobj.push(locale.insNumber(diams[i].diam, 1));
+        spoolobj.push({
+            'VALUE': locale.insNumber(diams[i].diam, 1),
+            'DESCRIPTION': diams[i].spool
+        });
     }
     fields['DIAMETER'] = diamsobj;
     fields['NOSITELI_PROVOLOKI'] = spoolobj;
 
-    let sertobj = {};
+    let sertobj = [];
     for (let i = 0; i < sert.length; i++) {
         const doc = mapDoc.get(sert[i].nam);
-        if (!doc) continue; // Пропускаем отсутствующие документы
-        sertobj[i] = { 'VALUE': doc['ID'], 'DESCRIPTION': sert[i].diams };
+        if (!doc) continue;
+        sertobj.push({
+            'VALUE': doc['ID'],
+            'DESCRIPTION': sert[i].diams
+        });
     }
     fields['DOC'] = sertobj;
 
     obj['fields'] = fields;
+
     return JSON.stringify(obj);
 };
 
@@ -559,33 +572,32 @@ const syncEl = async function (sitedata, data, mapDoc) {
 
 const wireEqual = function (kis, data, tu, chem, diams, sert, mapDoc) {
     const wtype = getWireType(kis.marka);
-    let eq = (kis.marka == encode.decode(data['NAME']) &&
+    const eq = (norm(kis.marka) === norm(encode.decode(data['NAME'])) &&
         ((kis.active && (data['ACTIVE'] == 'Y')) || (!kis.active && (data['ACTIVE'] == 'N'))) &&
-        data['NAZNACHENIE'] == '' &&
-        kis.type == encode.decode(data['TIP_PROVOLOKI']) &&
-        data['TIP_PO_GOST'] == wtype &&
-        data['SUFFIKS'] == '' &&
-        data['ZNAMENATEL'] == '' &&
-        data['TIP_PO_ISO'] == '' &&
-        data['TIP_PO_AWS'] == '' &&
-        data['POLOZHENIE_PRI_SVARKE'] == '' &&
-        kis.descr == encode.decode(data['OPISANIE']) &&
-        data['OSOBYE_SVOYSTVA'] == '' &&
-        data['TEKHNOLOGICHESKIE_OSOBENNOSTI_SVARKI'] == '' &&
-        data['PROKALKA_PERED_SVARKOY'] == '' &&
-        kis.marka == encode.decode(data['NAZVANIE']) &&
-        data['KHIMICHESKIY_SOSTAV_NAPLAVLENNOGO_METALLA'] == false &&
-        kis.type == encode.decode(data['TIP_PROVOLOKI']) &&
-        kis.base == encode.decode(data['BAZOVAYA_MARKA']) &&
-        data['REKOMENDUEMOE_ZNACHENIE_TOKA'] == false &&
-        data['KHARAKTERISTIKI_PLAVLENIYA'] == false &&
-        data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'] == false
+        norm(data['NAZNACHENIE']) === '' &&
+        norm(kis.type) === norm(encode.decode(data['TIP_PROVOLOKI'])) &&
+        norm(data['TIP_PO_GOST']) === norm(wtype) &&
+        norm(data['SUFFIKS']) === '' &&
+        norm(data['ZNAMENATEL']) === '' &&
+        norm(data['TIP_PO_ISO']) === '' &&
+        norm(data['TIP_PO_AWS']) === '' &&
+        norm(data['POLOZHENIE_PRI_SVARKE']) === '' &&
+        norm(kis.descr) === norm(encode.decode(data['OPISANIE'])) &&
+        norm(data['OSOBYE_SVOYSTVA']) === '' &&
+        norm(data['TEKHNOLOGICHESKIE_OSOBENNOSTI_SVARKI']) === '' &&
+        norm(data['PROKALKA_PERED_SVARKOY']) === '' &&
+        norm(kis.marka) === norm(encode.decode(data['NAZVANIE'])) &&
+        norm(data['KHIMICHESKIY_SOSTAV_NAPLAVLENNOGO_METALLA']) === '' &&
+        norm(kis.base) === norm(encode.decode(data['BAZOVAYA_MARKA'])) &&
+        norm(data['REKOMENDUEMOE_ZNACHENIE_TOKA']) === '' &&
+        norm(data['KHARAKTERISTIKI_PLAVLENIYA']) === '' &&
+        norm(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO']) === ''
     );
 
     let tuEq = eq && lenEq(tu, data['NORMATIVNAYA_DOKUMENTATSIYA']);
     if (tuEq) {
         for (let i = 0; i < tu.length; i++) {
-            tuEq = tuEq && (tu[i].nam == encode.decode(data['NORMATIVNAYA_DOKUMENTATSIYA'][i]));
+            tuEq = tuEq && (norm(tu[i].nam) === norm(encode.decode(data['NORMATIVNAYA_DOKUMENTATSIYA'][i])));
         }
     }
 
@@ -595,22 +607,22 @@ const wireEqual = function (kis, data, tu, chem, diams, sert, mapDoc) {
             const min = (chem[i].min == null) ? '' : locale.insNumber(chem[i].min, 3);
             const max = (chem[i].max == null) ? '' : locale.insNumber(chem[i].max, 3);
             const str = chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#";
-            chemEq = chemEq && (str == encode.decode(data['KHIMICHESKIY_SOSTAV_PROVOLOKI'][i]));
+            chemEq = chemEq && (norm(str) === norm(encode.decode(data['KHIMICHESKIY_SOSTAV_PROVOLOKI'][i])));
         }
     }
 
     let diamsEq = eq && lenEq(diams, data['DIAMETER']);
     if (diamsEq) {
         for (let i = 0; i < diams.length; i++) {
-            diamsEq = diamsEq && (locale.insNumber(diams[i].diam, 1) == encode.decode(data['DIAMETER'][i]));
+            diamsEq = diamsEq && (norm(locale.insNumber(diams[i].diam, 1)) === norm(encode.decode(data['DIAMETER'][i])));
         }
     }
 
     let spoolEq = eq && lenEq(diams, data['NOSITELI_PROVOLOKI']?.VALUE);
     if (spoolEq) {
         for (let i = 0; i < diams.length; i++) {
-            spoolEq = spoolEq && (locale.insNumber(diams[i].diam, 1) == encode.decode(data['NOSITELI_PROVOLOKI']['VALUE'][i]))
-                && (diams[i].spool == encode.decode(data['NOSITELI_PROVOLOKI']['DESCRIPTION'][i]));
+            spoolEq = spoolEq && (norm(locale.insNumber(diams[i].diam, 1)) === norm(encode.decode(data['NOSITELI_PROVOLOKI']['VALUE'][i])))
+                && (norm(diams[i].spool) === norm(encode.decode(data['NOSITELI_PROVOLOKI']['DESCRIPTION'][i])));
         }
     }
 
@@ -622,10 +634,8 @@ const wireEqual = function (kis, data, tu, chem, diams, sert, mapDoc) {
         }
         for (let i = 0; i < sert.length; i++) {
             const doc = mapDoc.get(sert[i].nam);
-            if (!doc) { sertEq = false; break; } // Защита от TypeError
-            const id_sert = doc['ID'];
-            const descr = sert[i].diams;
-            sertEq = sertEq && map.has(id_sert) && paramEq(descr, map.get(id_sert));
+            if (!doc) { sertEq = false; break; }
+            sertEq = sertEq && map.has(doc['ID']) && paramEq(sert[i].diams, map.get(doc['ID']));
         }
     }
 
@@ -662,31 +672,38 @@ const createWireObj = function (id, kis, tu, chem, diams, sert, mapDoc) {
         'MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO': '',
     };
 
-    let tuobj = {};
-    for (let i = 0; i < tu.length; i++) tuobj[i] = tu[i].nam;
+    let tuobj = [];
+    for (let i = 0; i < tu.length; i++) tuobj.push(tu[i].nam);
     fields['NORMATIVNAYA_DOKUMENTATSIYA'] = tuobj;
 
-    let chemobj = {};
+    let chemobj = [];
     for (let i = 0; i < chem.length; i++) {
         const min = (chem[i].min == null) ? '' : locale.insNumber(chem[i].min, 3);
         const max = (chem[i].max == null) ? '' : locale.insNumber(chem[i].max, 3);
-        chemobj[i] = chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#";
+        chemobj.push(chem[i].nam + "#" + chem[i].sig + "#" + min + " - " + max + "#");
     }
     fields['KHIMICHESKIY_SOSTAV_PROVOLOKI'] = chemobj;
 
-    let diamsobj = {}, spoolobj = {};
+    let diamsobj = [];
+    let spoolobj = [];
     for (let i = 0; i < diams.length; i++) {
-        diamsobj[i] = locale.insNumber(diams[i].diam, 1);
-        spoolobj[i] = { 'VALUE': locale.insNumber(diams[i].diam, 1), 'DESCRIPTION': diams[i].spool };
+        diamsobj.push(locale.insNumber(diams[i].diam, 1));
+        spoolobj.push({
+            'VALUE': locale.insNumber(diams[i].diam, 1),
+            'DESCRIPTION': diams[i].spool
+        });
     }
     fields['DIAMETER'] = diamsobj;
     fields['NOSITELI_PROVOLOKI'] = spoolobj;
 
-    let sertobj = {};
+    let sertobj = [];
     for (let i = 0; i < sert.length; i++) {
         const doc = mapDoc.get(sert[i].nam);
-        if (!doc) continue; // Пропускаем отсутствующие документы
-        sertobj[i] = { 'VALUE': doc['ID'], 'DESCRIPTION': sert[i].diams };
+        if (!doc) continue;
+        sertobj.push({
+            'VALUE': doc['ID'],
+            'DESCRIPTION': sert[i].diams
+        });
     }
     fields['DOC'] = sertobj;
 
