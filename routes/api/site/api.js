@@ -405,6 +405,9 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
             else if (mech[i].max == null && mech[i].min != null) val = ">= " + locale.insNumber(mech[i].min, 3);
             else if (mech[i].max != null && mech[i].min != null) val = locale.insNumber(mech[i].min, 3) + " - " + locale.insNumber(mech[i].max, 3);
             const str = encode.decode(mech[i].nam_html + "#" + mech[i].sig_html + "#" + val + "#");
+            /*if (norm(str) != norm(encode.decode(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'][i]))){
+                console.log(norm(str),norm(encode.decode(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'][i])));
+            }*/
             mechEq = mechEq && (norm(str) === norm(encode.decode(data['MEKHANICHESKIE_SVOYSTVA_METALLA_SHVA_I_NAPLAVLENNO'][i])));
         }
     }
@@ -436,6 +439,10 @@ const elEqual = function (kis, data, tu, amp, plav, chem, mech, diams, sert, map
             sertEq = sertEq && map.has(doc['ID']) && paramEq(sert[i].diams, map.get(doc['ID']));
         }
     }
+
+    /*if (!(eq && tuEq && ampEq && plavEq && chemEq && mechEq && diamsEq && spoolEq && sertEq)){
+        console.log(eq,tuEq,ampEq,plavEq,chemEq,mechEq,diamsEq,spoolEq,sertEq);
+    }*/
 
     return eq && tuEq && ampEq && plavEq && chemEq && mechEq && diamsEq && spoolEq && sertEq;
 };
@@ -558,6 +565,7 @@ const syncEl = async function (sitedata, data, mapDoc) {
         if (data.has(kis.id)) {
             if (!elEqual(kis, data.get(kis.id), tu, amp, plav, chem, mech, diams, sert, mapDoc)) {
                 let upd = await sendReq(sitedata, "catalog.Element.upd", "POST", createElObj(data.get(kis.id)['ID'], kis, tu, amp, plav, chem, mech, diams, sert, mapDoc));
+                //console.log(kis.marka);
                 if (!upd.ok) err.push("Обновление " + kis.marka + ": " + upd.error);
                 else count++;
             }

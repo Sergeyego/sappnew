@@ -126,6 +126,8 @@ require('./routes/api/site/api.js')(router);
 
 require('./routes/api/generalship/generalship.js')(router);
 
+require('./routes/api/docs/docs.js')(router);
+
 /*router.get('/profile', (req, res) => {
     res.json({ message: `Hello, ${req.user.username}!` });
 });
