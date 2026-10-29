@@ -118,6 +118,8 @@ require('./routes/api/elrtr/pasport/api.js')(router);
 
 require('./routes/api/elrtr/certificate/create.js')(router);
 
+require('./routes/api/elrtr/variants/variants.js')(router);
+
 require('./routes/api/wire/certificate/create.js')(router);
 require('./routes/api/wire/parti/parti.js')(router);
 
