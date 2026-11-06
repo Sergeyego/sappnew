@@ -127,6 +127,7 @@ require('./routes/api/wms/api.js')(router);
 require('./routes/api/site/api.js')(router);
 
 require('./routes/api/generalship/generalship.js')(router);
+require('./routes/api/checkcode/checkcode.js')(router);
 
 require('./routes/api/docs/docs.js')(router);
 
