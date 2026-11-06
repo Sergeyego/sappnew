@@ -303,7 +303,7 @@ module.exports = function (app) {
                 left join rcp_nam r on r.id=p.id_rcp 
                 inner join elrtr_vars ev on ev.id = p.id_var 
                 ${filter}
-                order by p.yea, p.n_s`;
+                order by p.n_s, p.yea`;
 
             // fltObj содержит ТОЛЬКО те свойства, которые реально есть в строке filter
             const data = await autorest.getRoData("Партии электродов", query, fltObj, header, 1, param);

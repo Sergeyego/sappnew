@@ -290,7 +290,7 @@ module.exports = function (app) {
                   left join wire_empl we on we.id = wpm.id_empl 
                   inner join wire_line wl on wl.id = wpm.id_type 
                   ${filter}
-                  order by date_part('year',wpm.dat), wpm.n_s, wpm.dat, wpk.short`;
+                  order by wpm.n_s, wpm.dat, wpk.short`;
 
             // fltObj содержит ТОЛЬКО те свойства, которые реально есть в строке filter
             const data = await autorest.getRoData("Партии проволоки", query, fltObj, header, 1, param);
