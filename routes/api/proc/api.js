@@ -25,6 +25,9 @@ module.exports = function (app) {
     };
 
     const toInt = (val, name) => {
+        if (val===""){
+            return null;
+        }
         const n = Number(val);
         if (!Number.isFinite(n) || !Number.isInteger(n)) {
             const e = new Error(`Invalid integer for "${name}": ${val}`);
@@ -130,6 +133,28 @@ module.exports = function (app) {
         }
     });
 
+    app.get("/proc/wireprogs", async (req, res) => {
+        try {
+            const data = await db.any("select p.id, p.nam from owens_progs as p order by p.nam",[]);
+            sendXml(res, data);
+        } catch (error) {
+            sendError(res, error);
+        }
+    });
+
+    app.get("/proc/wireprogdata/:id_prog", async (req, res) => {
+        try {
+            const id_prog = toInt(req.params.id_prog, 'id_prog');
+            const data = await db.any(
+                "select step, tim, tra from owens_progs_data where id_prog = $1 order by step",
+                [id_prog]
+            );
+            sendXml(res, data);
+        } catch (error) {
+            sendError(res, error);
+        }
+    });
+
     app.get("/proc/progs/:id_part", async (req, res) => {
         try {
             const id_part = toInt(req.params.id_part, 'id_part');
@@ -169,19 +194,20 @@ module.exports = function (app) {
             const jsonObj = xmlParser.parse(req.body || '');
             const body = jsonObj?.root || {};
             const now = new Date();
-
+            //console.log(req.body);
+            //console.log(body);
             const id_oven = toInt(body.id_oven, 'id_oven');
             const id_rab = toInt(body.id_rab, 'id_rab');
-            const id_prog = toInt(body.id_prog, 'id_prog');
+            const id_prog = (id_rab!==null) ? toInt(body.id_prog, 'id_prog') : null;
 
             const data = await db.tx(async (t) => {
                 await autorest.setSqlContext(t, req);
 
                 return await t.one(
                     `INSERT INTO owens_rab 
-                        (id_owen, id_rab, id_eldim, id_prog, n_s, zms, w0, t0, dt_beg, kvo, id_part, new_format)
+                        (id_owen, id_rab, id_eldim, id_prog, n_s, zms, w0, t0, dt_beg, kvo, id_part, new_format, prog_nam)
                      VALUES 
-                        ($1, $2, (select ide from dry_reg where id = $3), $4, $5, $6, $7, $8, $9, $10, $11, true)
+                        ($1, $2, (select ide from dry_reg where id = $3), $4, $5, $6, $7, $8, $9, $10, $11, true, $12)
                      RETURNING id`,
                     [
                         id_oven,
@@ -195,6 +221,7 @@ module.exports = function (app) {
                         now,
                         toInt(body.kvo, 'kvo'),
                         toInt(body.id_part, 'id_part'),
+                        String(body.progname)
                     ]
                 );
             });
