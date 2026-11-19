@@ -1,6 +1,7 @@
 const db = require('../../../postgres.js');
 const autorest = require('../../../autorest/autorest.js'); 
 const bodyParser = require('body-parser');
+const locale = require('../../../locale.js');
 
 module.exports = function (app) {
 
@@ -11,7 +12,7 @@ module.exports = function (app) {
             const param = {
                 id: { "width": -1 },
                 num: { "width": 85 },
-                dt_beg: { "width": 120 },
+                dt_beg: { "width": 125 },
                 n_s: { "width": is_el ? 70 : -1 },
                 marka: { "width": is_el ? 165 : -1 },
                 prog_nam: { "width": is_el ? -1 : 200 },
@@ -147,6 +148,61 @@ module.exports = function (app) {
                 order by o.num`;
 
             const data = await autorest.getRoData("Печи", query, [], header, 1, param);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type("text/plain").send(error.message);
+        }
+    });
+
+    app.get("/proc/ovens/profile/:dbeg/:dend", async (req, res) => {
+        try {
+            const header = ["Час", "Мощность, кВт"];
+
+            const query = `WITH hourly_channel_power AS (
+                -- Шаг 1: Находим среднюю мощность для каждого канала внутри конкретного часа каждого дня
+                SELECT 
+                    d.dat_time::date AS date_day,
+                    EXTRACT(HOUR FROM d.dat_time) AS hour_of_day,
+                    d.id_channel,
+                    AVG(coalesce(d.pwr,0) * c.pwr) AS avg_channel_kw
+                FROM 
+                    public.owens_data_new d
+                JOIN 
+                    public.owens_trm_channel c ON d.id_channel = c.id
+                WHERE 
+                    -- Укажите нужный вам период времени
+                    d.dat_time >= $1::date
+                    AND d.dat_time < ($2::date+1)
+                GROUP BY 
+                    d.dat_time::date,
+                    EXTRACT(HOUR FROM d.dat_time),
+                    d.id_channel
+            ),
+            total_power_per_hour AS (
+                -- Шаг 2: Складываем средние мощности всех каналов за этот час
+                SELECT 
+                    date_day,
+                    hour_of_day,
+                    SUM(avg_channel_kw) AS total_kw_h
+                FROM 
+                    hourly_channel_power
+                GROUP BY 
+                    date_day,
+                    hour_of_day
+            )
+            -- Шаг 3: Считаем средний профиль общей мощности и округляем до целых кВт
+            SELECT 
+                to_char(hour_of_day, 'FM00') AS hour_of_day,
+                ROUND(AVG(total_kw_h))::int AS avg_total_power_kw
+            FROM 
+                total_power_per_hour
+            GROUP BY 
+                hour_of_day
+            ORDER BY 
+                hour_of_day;`;
+
+            const title = "Профиль мощности с "+locale.insDate(req.params.dbeg)+" по "+locale.insDate(req.params.dend);
+            const data = await autorest.getRoData(title , query, [req.params.dbeg, req.params.dend], header);
             res.json(data);
         } catch (error) {
             res.status(500).type("text/plain").send(error.message);
