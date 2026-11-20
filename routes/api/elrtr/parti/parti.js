@@ -283,7 +283,7 @@ module.exports = function (app) {
                 }
             }
 
-            const header = ["id", "Партия", "Дата", "Марка", "Источник", "Рецептура", "Вариант"];
+            const header = ["id", "Партия", "Дата", "Марка", "Источник", "Рецептура", "Вариант", "id_el"];
             const param = {
                 id: { "width": -1 },
                 n_s: { "width": 55 },
@@ -291,12 +291,13 @@ module.exports = function (app) {
                 marka: { "width": 165 },
                 srcnam: { "width": 90 },
                 rcpnam: { "width": 125 },
-                varnam: { "width": 160 }
+                varnam: { "width": 160 },
+                id_el: { "width": -1 }
             };
 
             let query = `select p.id as id, p.n_s as n_s, p.dat_part as dat_part, 
                 e.marka||' ф '||cast(p.diam as varchar(3)) as marka, i.nam as srcnam, 
-                r.nam as rcpnam, ev.nam as varnam
+                r.nam as rcpnam, ev.nam as varnam, p.id_el as id_el
                 from parti p 
                 inner join elrtr e on e.id=p.id_el 
                 inner join istoch i on i.id=p.id_ist 

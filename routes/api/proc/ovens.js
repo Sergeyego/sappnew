@@ -209,6 +209,55 @@ module.exports = function (app) {
         }
     });
 
+    app.post("/proc/ovens/prog/paste/:id/:id_grp", bodyParser.json(), async (req, res) => {
+        try {
+            const id = Number(req.params.id);
+            const id_grp = Number(req.params.id_grp);
+            if (isNaN(id) || isNaN(id_grp)) {
+                return res.status(400).type('text/plain').send("Неверные параметры id, id_grp");
+            }
+
+            const { id_src, id_grp_src} = req.body;
+
+            // Валидация числовых полей
+            const numIdSrc = Number(id_src);
+            const numIdGrp = Number(id_grp_src);
+
+            if (!Number.isFinite(numIdSrc) || !Number.isFinite(numIdGrp)) {
+                return res.status(400).type('text/plain').send("Параметры id_src, id_grp_src должны быть числами");
+            }
+
+            const data = await db.tx(async (t) => {
+                await autorest.setSqlContext(t, req);
+                return await t.oneOrNone(
+                    `insert into dry_prog (id, step, tra, tim, id_grp) 
+                    (select $1, p.step, p.tra, p.tim, $2 from dry_prog as p where p.id = $3 and p.id_grp = $4)`,
+                    [id,id_grp,numIdSrc,numIdGrp]
+                );
+            });
+            res.json(data);
+        } catch (error) {
+            console.error('[PATCH rab]', error);
+            res.status(error.status || 500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.post("/proc/ovens/updeldim", bodyParser.json(), async (req, res) => {
+        try {
+            const data = await db.tx(async (t) => {
+                await autorest.setSqlContext(t, req);
+                return await t.any(
+                    `select * from rx_els()`,
+                    []
+                );
+            });
+            res.json(data);
+        } catch (error) {
+            console.error('[PATCH rab]', error);
+            res.status(error.status || 500).type('text/plain').send(error.message);
+        }
+    });
+
     app.get("/proc/ovens/plotdata", async (req, res) => {
         try {
             const id_owrab = req.query.id_owrab ? Number(req.query.id_owrab) : null;
