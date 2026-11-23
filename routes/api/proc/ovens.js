@@ -1,5 +1,5 @@
 const db = require('../../../postgres.js');
-const autorest = require('../../../autorest/autorest.js'); 
+const autorest = require('../../../autorest/autorest.js');
 const bodyParser = require('body-parser');
 const locale = require('../../../locale.js');
 
@@ -201,8 +201,8 @@ module.exports = function (app) {
             ORDER BY 
                 hour_of_day;`;
 
-            const title = "Профиль мощности с "+locale.insDate(req.params.dbeg)+" по "+locale.insDate(req.params.dend);
-            const data = await autorest.getRoData(title , query, [req.params.dbeg, req.params.dend], header);
+            const title = "Профиль мощности с " + locale.insDate(req.params.dbeg) + " по " + locale.insDate(req.params.dend);
+            const data = await autorest.getRoData(title, query, [req.params.dbeg, req.params.dend], header);
             res.json(data);
         } catch (error) {
             res.status(500).type("text/plain").send(error.message);
@@ -217,27 +217,38 @@ module.exports = function (app) {
                 return res.status(400).type('text/plain').send("Неверные параметры id, id_grp");
             }
 
-            const { id_src, id_grp_src} = req.body;
-
-            // Валидация числовых полей
+            const { id_src, id_grp_src } = req.body;
             const numIdSrc = Number(id_src);
             const numIdGrp = Number(id_grp_src);
-
             if (!Number.isFinite(numIdSrc) || !Number.isFinite(numIdGrp)) {
                 return res.status(400).type('text/plain').send("Параметры id_src, id_grp_src должны быть числами");
             }
 
+            if (id === numIdSrc && id_grp === numIdGrp) {
+                return res.status(400).type('text/plain').send("Источник и приёмник совпадают");
+            }
+
             const data = await db.tx(async (t) => {
                 await autorest.setSqlContext(t, req);
-                return await t.oneOrNone(
-                    `insert into dry_prog (id, step, tra, tim, id_grp) 
-                    (select $1, p.step, p.tra, p.tim, $2 from dry_prog as p where p.id = $3 and p.id_grp = $4)`,
-                    [id,id_grp,numIdSrc,numIdGrp]
+                return await t.one(
+                    `WITH ins AS (
+                    INSERT INTO dry_prog (id, step, tra, tim, id_grp)
+                    SELECT $1, p.step, p.tra, p.tim, $2
+                    FROM dry_prog AS p
+                    WHERE p.id = $3 AND p.id_grp = $4
+                    RETURNING 1
+                )
+                SELECT count(*)::int AS cnt FROM ins`,
+                    [id, id_grp, numIdSrc, numIdGrp]
                 );
             });
-            res.json(data);
+
+            if (data.cnt === 0) {
+                return res.status(404).type('text/plain').send("Программа-источник не найдена");
+            }
+            res.json({ inserted: data.cnt });
         } catch (error) {
-            console.error('[PATCH rab]', error);
+            console.error('[paste]', error);
             res.status(error.status || 500).type('text/plain').send(error.message);
         }
     });

@@ -34,15 +34,53 @@ module.exports = function (app) {
 
     app.post("/elrtr/dosage/paste/:id_src_rcp/:id_rcp", async (req, res) => {
         try {
-            const data = await db.tx(async t => {
+            const id_src = Number(req.params.id_src_rcp);
+            const id_dst = Number(req.params.id_rcp);
+
+            if (!Number.isInteger(id_src) || id_src <= 0 ||
+                !Number.isInteger(id_dst) || id_dst <= 0) {
+                return res.status(400).type('text/plain')
+                    .send("Неверные параметры id_src_rcp, id_rcp");
+            }
+
+            if (id_src === id_dst) {
+                return res.status(400).type('text/plain')
+                    .send("Источник и приёмник совпадают");
+            }
+
+            const result = await db.tx(async t => {
                 await autorest.setSqlContext(t, req);
-                await t.any(`delete from rcp_cont where id_rcp = $1`, [Number(req.params["id_rcp"])]);
-                return await t.any(`insert into rcp_cont (id_rcp, id_matr, kvo, hidden) 
-                    (select $1, id_matr, kvo, hidden from rcp_cont where id_rcp = $2 )`, [Number(req.params["id_rcp"]), Number(req.params["id_src_rcp"])]);
+
+                // Проверяем источник ДО удаления приёмника — иначе можно стереть
+                // приёмник, ничего не вставив (рецепт-источник не существует/пуст).
+                const src = await t.one(
+                    'select count(*)::int as cnt from rcp_cont where id_rcp = $1',
+                    [id_src]
+                );
+                if (src.cnt === 0) {
+                    const e = new Error("Рецепт-источник не найден или пуст");
+                    e.status = 404;
+                    throw e;
+                }
+
+                await t.none('delete from rcp_cont where id_rcp = $1', [id_dst]);
+
+                const inserted = await t.any(
+                    `insert into rcp_cont (id_rcp, id_matr, kvo, hidden)
+                    select $1, id_matr, kvo, hidden
+                    from rcp_cont
+                    where id_rcp = $2
+                    returning id_rcp, id_matr`,
+                    [id_dst, id_src]
+                );
+
+                return { inserted: inserted.length };
             });
-            res.json(data);
+
+            res.json(result);
         } catch (error) {
-            res.status(500).type('text/plain').send(error.message);
+            console.error('[elrtr/dosage/paste]', error);
+            res.status(error.status || 500).type('text/plain').send(error.message);
         }
     });
 

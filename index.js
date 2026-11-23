@@ -47,7 +47,7 @@ app.post('/login', bodyParser.json(), async (req, res) => {
         }
 
         const token = await new Promise((resolve, reject) => {
-            jwt.sign({ username }, JWT_SECRET, { expiresIn: "12h" }, (err, encoded) => {
+            jwt.sign({ username }, JWT_SECRET, { expiresIn: "13h" }, (err, encoded) => {
                 if (err) reject(err);
                 else resolve(encoded);
             });
@@ -189,6 +189,7 @@ require('./client_olap/api.js')(router);
 require('./routes/api/depimages/depimages.js')(router);
 require('./routes/api/elrtr/dosage/rcp.js')(router);
 require('./routes/api/elrtr/dosage/s3.js')(router);
+require('./routes/api/elrtr/dosage/comp.js')(router);
 require('./routes/api/elrtr/parti/parti.js')(router);
 require('./routes/api/elrtr/lab/lab.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
