@@ -1,14 +1,14 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
-const db = require("./postgres.js");
+const db = require('./postgres.js');
 const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 
 const app = express();
-const port = 9000;
+const PORT = process.env.PORT || 9000;
 
 const options = {
     key: fs.readFileSync(os.homedir() + '/.szsm/privateKey.key'),
@@ -236,10 +236,10 @@ app.use((err, req, res, next) => {
     res.status(status).type('text/plain').send(err.message || 'Internal error');
 });
 
-/*app.listen(port, () => {
-    console.log(`HTTP server running on port ${port}`);
+/*app.listen(PORT, () => {
+    console.log(`HTTP server running on port ${PORT}`);
 })*/
 
-https.createServer(options, app).listen(port, () => {
-    console.log(`HTTPS server running on port ${port}`);
+https.createServer(options, app).listen(PORT, () => {
+    console.log(`HTTPS server running on port ${PORT}`);
 });
