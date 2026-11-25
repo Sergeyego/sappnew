@@ -72,4 +72,45 @@ module.exports = function (app) {
             res.status(500).type('text/plain').send(error.message);
         }
     });
+
+    app.get("/elrtr/dosage/comp/bunk/stat/:id_cex", async (req, res) => {
+        try {
+            const query = `
+                select c.is_tiny, c.num, c.nam, c.parti, p.str, c.typ, c.dtm from calc_doz_stat($1, $2) as c 
+                left join comp_parti as p on p.id = c.id_part
+                order by num, nam
+            `;
+
+            const header = ["Маломер", "Бункер", "Компонент", "Партия", "Партия компонента","Группа", "Дата засыпки"];
+            const param = {
+                is_tiny: { "width": -1 }
+            };
+
+            const data = await autorest.getRoData("Статус бункеров", query, [req.query.dtm, Number(req.params.id_cex)], header, 3, param);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
+
+    app.get("/elrtr/dosage/comp/bunk/history/:id_cex/:id_comp", async (req, res) => {
+        try {
+            const query = `
+                select bc.dtm as dtm, b.numer, bc.parti, tp.nam as typ, bo.nam, bc.kvo from bunk_comp as bc 
+                inner join bunk as b on b.id=bc.id_bunk 
+                inner join matr as m on m.id=bc.id_comp 
+                inner join el_types as tp on tp.id=bc.id_grp 
+                inner join bunk_op as bo on bo.id=bc.id_op 
+                where bc.dtm >= $1 and bc.id_comp = $2 and bc.id_cex = $3 
+                order by dtm desc"
+            `;
+
+            const header = ["Дата засыпки", "Бункер", "Партия", "Группа", "Операция", "К-во, кг"];
+
+            const data = await autorest.getRoData("Статус бункеров", query, [req.query.dtm, Number(req.params.id_comp), Number(req.params.id_cex)], header, 1);
+            res.json(data);
+        } catch (error) {
+            res.status(500).type('text/plain').send(error.message);
+        }
+    });
 }
