@@ -141,6 +141,7 @@ router.get('/groups', async (req, res) => {
 
 // Подключаем внешние модули, которые ТАКЖЕ должны отвечать на API-ключ
 require('./routes/api/proc/api.js')(router);
+require('./routes/api/elrtr/dosage/api.js')(router);
 
 // -------------------------------------------------------------
 // КАТЕГОРИЯ 2: Все последующие роуты — ТОЛЬКО по JWT
@@ -190,6 +191,7 @@ require('./routes/api/depimages/depimages.js')(router);
 require('./routes/api/elrtr/dosage/rcp.js')(router);
 require('./routes/api/elrtr/dosage/s3.js')(router);
 require('./routes/api/elrtr/dosage/comp.js')(router);
+require('./routes/api/elrtr/dosage/dosage.js')(router);
 require('./routes/api/elrtr/parti/parti.js')(router);
 require('./routes/api/elrtr/lab/lab.js')(router);
 require('./routes/api/elrtr/report/report.js')(router);
